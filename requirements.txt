@@ -1,0 +1,7 @@
+pure-python-adb     # Giao tiếp với Android
+opencv-python
+numpy
+paddlepaddle        # Framework AI (Cho OCR) - Cần cài đúng bản CPU/GPU
+paddleocr           # Thư viện OCR tốt nhất cho tiếng Việt
+pyyaml
+Pillow              # Xử lý ảnh bổ trợ

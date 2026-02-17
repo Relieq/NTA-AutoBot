@@ -1,0 +1,7 @@
+.venv/
+.idea/
+
+terminal_log.txt
+
+test_connection.py
+test_screen.png
