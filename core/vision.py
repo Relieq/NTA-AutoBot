@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 
 
 class VisionManager:
@@ -49,3 +50,68 @@ class VisionManager:
 
         # Không tìm thấy hoặc độ chính xác thấp hơn ngưỡng
         return None
+
+    def find_all_templates(self, screen_img, template_path, threshold=None, min_distance=20):
+        """
+        Tìm TẤT CẢ các vị trí ảnh mẫu (template) trên ảnh màn hình.
+        Trả về danh sách các tọa độ tâm [(x1, y1), (x2, y2), ...] sắp xếp theo y tăng dần.
+
+        Args:
+            screen_img: Ảnh màn hình để tìm kiếm
+            template_path: Đường dẫn đến ảnh mẫu
+            threshold: Ngưỡng nhận diện (0.0 - 1.0). Nếu None, sử dụng self.threshold
+            min_distance: Khoảng cách tối thiểu giữa 2 điểm tìm được (tránh trùng lặp)
+
+        Returns:
+            List các tuple (center_x, center_y) sắp xếp theo y tăng dần, hoặc [] nếu không tìm thấy
+        """
+        threshold = threshold if threshold is not None else self.threshold
+
+        # 1. Đọc ảnh mẫu
+        template = cv2.imread(template_path)
+        if template is None:
+            print(f"!!! Lỗi Vision: Không đọc được file ảnh mẫu tại: {template_path}")
+            return []
+
+        # 2. Lấy kích thước ảnh mẫu
+        h, w = template.shape[:2]
+
+        # 3. So sánh ảnh mẫu với màn hình
+        result = cv2.matchTemplate(screen_img, template, cv2.TM_CCOEFF_NORMED)
+
+        # 4. Tìm TẤT CẢ các điểm vượt ngưỡng
+        locations = np.where(result >= threshold)
+
+        # 5. Chuyển đổi thành danh sách tọa độ (x, y) và tính tâm
+        points = []
+        # locations trả về (rows, cols) = (y_coords, x_coords)
+        y_coords, x_coords = locations
+        for x, y in zip(x_coords, y_coords):
+            center_x = int(x) + w // 2
+            center_y = int(y) + h // 2
+            points.append((center_x, center_y))
+
+        if not points:
+            return []
+
+        # 6. Loại bỏ các điểm quá gần nhau (Non-Maximum Suppression đơn giản)
+        filtered_points = []
+        for pt in points:
+            is_duplicate = False
+            for existing_pt in filtered_points:
+                distance = ((pt[0] - existing_pt[0]) ** 2 + (pt[1] - existing_pt[1]) ** 2) ** 0.5
+                if distance < min_distance:
+                    is_duplicate = True
+                    break
+            if not is_duplicate:
+                filtered_points.append(pt)
+
+        # 7. Sắp xếp theo tọa độ y tăng dần (trên cùng trước)
+        filtered_points.sort(key=lambda p: p[1])
+
+        print(f"> Vision: Tìm thấy {len(filtered_points)} vị trí của '{template_path}'")
+        for i, pt in enumerate(filtered_points):
+            print(f"   [{i + 1}] Tọa độ: ({pt[0]}, {pt[1]})")
+
+        return filtered_points
+

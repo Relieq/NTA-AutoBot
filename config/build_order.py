@@ -5,27 +5,27 @@
 
 BUILD_SEQUENCE = [
     # --- Giai đoạn khởi đầu ---
-    # {"name": "kho_luong", "target_lv": 1, "type_name": "Kho Lương"},
-    # {"name": "kho", "target_lv": 1, "type_name": "Kho"},
-    # {"name": "y_quan", "target_lv": 1, "type_name": "Y Quán"},
-    # {"name": "dai_su_quan", "target_lv": 1, "type_name": "Đại Sứ Quán"},
+    {"name": "kho_luong", "target_lv": 1, "type_name": "Kho Lương"},
+    {"name": "kho", "target_lv": 1, "type_name": "Kho"},
+    {"name": "y_quan", "target_lv": 1, "type_name": "Y Quán"},
+    {"name": "dai_su_quan", "target_lv": 1, "type_name": "Đại Sứ Quán"},
 
     # --- Giai đoạn... ---
-    # {"name": "thanh_chinh", "target_lv": 2, "type_name": "Thành Chính"},
-    # {"name": "thanh_chinh", "target_lv": 3, "type_name": "Thành Chính"},
-    # {"name": "binh_doanh", "target_lv": 2, "type_name": "Binh Doanh"},
-    # {"name": "tiem_ren", "target_lv": 1, "type_name": "Tiệm Rèn"},
-    #
-    # # ...
-    # {"name": "thanh_chinh", "target_lv": 4, "type_name": "Thành Chính"},
-    # {"name": "thanh_chinh", "target_lv": 5, "type_name": "Thành Chính"},
-    # {"name": "thao_truong", "target_lv": 1, "type_name": "Thao Trường"},
-    # {"name": "tiem_ren", "target_lv": 2, "type_name": "Tiệm Rèn"},
-    # {"name": "tiem_ren", "target_lv": 3, "type_name": "Tiệm Rèn"},
-    # {"name": "kho", "target_lv": 2, "type_name": "Kho"},
-    # {"name": "kho", "target_lv": 3, "type_name": "Kho"},
-    # {"name": "kho_luong", "target_lv": 2, "type_name": "Kho Lương"},
-    # {"name": "kho_luong", "target_lv": 3, "type_name": "Kho Lương"},
+    {"name": "thanh_chinh", "target_lv": 2, "type_name": "Thành Chính"},
+    {"name": "thanh_chinh", "target_lv": 3, "type_name": "Thành Chính"},
+    {"name": "binh_doanh", "target_lv": 2, "type_name": "Binh Doanh"},
+    {"name": "tiem_ren", "target_lv": 1, "type_name": "Tiệm Rèn"},
+
+    # ...
+    {"name": "thanh_chinh", "target_lv": 4, "type_name": "Thành Chính"},
+    {"name": "thanh_chinh", "target_lv": 5, "type_name": "Thành Chính"},
+    {"name": "thao_truong", "target_lv": 1, "type_name": "Thao Trường"},
+    {"name": "tiem_ren", "target_lv": 2, "type_name": "Tiệm Rèn"},
+    {"name": "tiem_ren", "target_lv": 3, "type_name": "Tiệm Rèn"},
+    {"name": "kho", "target_lv": 2, "type_name": "Kho"},
+    {"name": "kho", "target_lv": 3, "type_name": "Kho"},
+    {"name": "kho_luong", "target_lv": 2, "type_name": "Kho Lương"},
+    {"name": "kho_luong", "target_lv": 3, "type_name": "Kho Lương"},
 
     {"name": "thanh_chinh", "target_lv": 6, "type_name": "Thành Chính"},
     {"name": "thanh_chinh", "target_lv": 7, "type_name": "Thành Chính"},

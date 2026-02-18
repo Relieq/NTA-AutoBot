@@ -56,7 +56,7 @@ class DailyTaskManager:
                 print("   > Không tháy nút quay (Hết lượt?).")
 
             # 3. Thoát ra (Tap vào vùng an toàn)
-            self.device.tap(0, 0)
+            self.device.tap(1, 1)
             time.sleep(1)
         else:
             print("   > Không thấy icon Vòng Quay ở màn hình chính.")
@@ -79,7 +79,7 @@ class DailyTaskManager:
 
             # 3. Thoát ra màn hình chính
             print("   > Thoát cửa tiệm...")
-            self.device.tap(0, 0)
+            self.device.tap(1, 1)
             time.sleep(1)
         else:
             print("   > Không tìm thấy Cửa Tiệm.")

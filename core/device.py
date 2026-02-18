@@ -1,3 +1,4 @@
+import subprocess
 import time
 from ppadb.client import Client as AdbClient
 import cv2
@@ -10,9 +11,17 @@ class DeviceManager:
     def __init__(self, host="127.0.0.1", port=5555):
         self.host = host
         self.port = port
+        self.start_adb_server()
         self.client = AdbClient(host="127.0.0.1", port=5037)  # Default ADB server port
         self.device = None
         self.connect()
+
+    def start_adb_server(self):
+        try:
+            # Gọi lệnh start-server bằng đường dẫn tuyệt đối
+            subprocess.run([self.adb_path, "start-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except Exception as e:
+            print(f"Loi start server: {e}")
 
     def connect(self):
         try:
