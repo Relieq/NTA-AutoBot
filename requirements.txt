@@ -2,6 +2,8 @@ pure-python-adb     # Giao tiếp với Android
 opencv-python
 numpy
 paddlepaddle        # Framework AI (Cho OCR) - Cần cài đúng bản CPU/GPU
-paddleocr           # Thư viện OCR tốt nhất cho tiếng Việt
+paddleocr           # Thư viện OCR
 pyyaml
 Pillow              # Xử lý ảnh bổ trợ
+easyocr             # OCR hỗ trợ tiếng Việt - ổn định, dễ cài
+torch               # PyTorch (backend cho EasyOCR)
