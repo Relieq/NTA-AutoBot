@@ -19,7 +19,7 @@ class DeviceManager:
     def start_adb_server(self):
         try:
             # Gọi lệnh start-server bằng đường dẫn tuyệt đối
-            subprocess.run([self.adb_path, "start-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["adb", "start-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except Exception as e:
             print(f"Loi start server: {e}")
 
@@ -48,6 +48,19 @@ class DeviceManager:
         if self.device:
             self.device.shell(f"input swipe {x1} {y1} {x2} {y2} {duration}")
             time.sleep(1)
+
+    def precise_drag(self, start_x, start_y, end_x, end_y):
+        """
+        Kéo thả chậm để không gây ra quán tính (Inertia).
+        Giúp map dừng lại chính xác tại điểm thả tay.
+        """
+        # Thời gian kéo dài (ví dụ 1000ms - 2000ms) giúp loại bỏ đà trôi
+        duration = 1500
+        cmd = f"input swipe {start_x} {start_y} {end_x} {end_y} {duration}"
+        if self.device:
+            self.device.shell(cmd)
+            # Chờ thêm chút xíu cho game render lại khung hình
+            time.sleep(0.5)
 
     def take_screenshot(self):
         """Chụp màn hình và trả về định dạng ảnh OpenCV (numpy array)"""

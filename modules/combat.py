@@ -1,0 +1,599 @@
+import time
+import os
+import cv2
+import numpy as np
+import math
+from paddleocr import PaddleOCR
+
+
+class CombatManager:
+    def __init__(self, device, vision):
+        self.device = device
+        self.vision = vision
+        self.assets_dir = os.path.join(os.getcwd(), "assets")
+        # Khởi tạo OCR (tắt log cho đỡ rối)
+        self.ocr = PaddleOCR(use_angle_cls=True, lang='en', enable_mkldnn=False)
+
+        # Cấu hình danh sách đen (Blacklist độ khó)
+        # Nếu gặp các từ này trong tên đất thì bỏ qua
+        self.blacklist_difficulty = ["Tăng bậc 2", "Tăng bậc 3", "Địa ngục", "Khó"]
+
+        # [CẤU HÌNH MÀU SẮC]
+        # Màu viền xanh lá cây của lãnh thổ (Hệ màu BGR của OpenCV)
+        # RGB(58, 133, 74) -> BGR(74, 133, 58)
+        # Dung sai +/- 15
+        self.lower_green = np.array([60, 118, 43])
+        self.upper_green = np.array([90, 148, 73])
+
+        # [HỆ THỐNG DẪN ĐƯỜNG]
+        # camera_offset: Lưu tổng vector đã kéo map để biết đường quay về
+        self.camera_offset = [0, 0]
+
+        # Kích thước màn hình giả lập (1600x900)
+        self.screen_w = 1600
+        self.screen_h = 900
+
+    def _get_path(self, filename):
+        return os.path.join(self.assets_dir, filename)
+
+    # ==========================================================
+    # PHẦN 1: HỆ THỐNG NAVIGATION (DI CHUYỂN & NEO)
+    # ==========================================================
+
+    def reset_camera_to_city(self, max_retries=3):
+        """
+        Tìm Thành Chính và kéo nó về giữa màn hình để làm mốc tọa độ (0,0).
+        Sẽ thử lại tối đa max_retries lần nếu không tìm thấy.
+        """
+        print("   [NAV] Đang Reset Camera về Thành Chính (Neo)...")
+        center_x, center_y = self.screen_w // 2, self.screen_h // 2
+
+        for attempt in range(1, max_retries + 1):
+            screen = self.device.take_screenshot()
+
+            # Tìm ảnh thành chính trên map
+            # Lưu ý: threshold thấp một chút vì map có thể bị zoom hoặc đổi màu nhẹ
+            city_pos = self.vision.find_template(screen, self._get_path("thanh_chinh_map.png"), threshold=0.45)
+
+            if city_pos:
+                # Tính độ lệch so với tâm màn hình
+                dx = center_x - city_pos[0]
+                dy = center_y - city_pos[1]
+
+                # Nếu lệch quá 50px thì kéo về giữa
+                if abs(dx) > 50 or abs(dy) > 50:
+                    print(f"   [NAV] Thành lệch ({dx}, {dy}). Đang kéo về giữa...")
+                    # Kéo map: Swipe từ vị trí thành về tâm
+                    self.device.precise_drag(city_pos[0], city_pos[1], center_x, center_y)
+                    time.sleep(1.5)
+
+                # Reset biến nhớ
+                self.camera_offset = [0, 0]
+                print("   [NAV] Đã Neo thành công. Offset = [0, 0]")
+                return True
+            else:
+                print(f"   [NAV-WARN] Lần {attempt}/{max_retries}: Không tìm thấy Thành Chính. Đang thử lại...")
+                if attempt < max_retries:
+                    # Chờ một chút và thử zoom out hoặc kéo ngẫu nhiên để tìm lại
+                    time.sleep(1.0)
+                    # Kéo map một chút về hướng trung tâm (giả định thành có thể ở gần)
+                    self.device.precise_drag(center_x + 100, center_y + 100, center_x, center_y)
+                    time.sleep(1.0)
+
+        print("   [NAV-ERR] Không tìm thấy Thành Chính sau nhiều lần thử! (Có thể đang ở quá xa)")
+        return False
+
+    def ensure_target_safe(self, target_x, target_y, debug=True):
+        """
+        [QUAN TRỌNG] Kiểm tra mục tiêu có nằm trong Vùng An Toàn không.
+        Nếu không, thực hiện kéo map để đưa mục tiêu vào vùng an toàn.
+        Mục đích: Đảm bảo popup thông tin hiện đủ để game KHÔNG tự cuộn map.
+        debug: Nếu True, sẽ lưu ảnh debug để kiểm tra.
+        """
+        # Cấu hình Vùng An Toàn (Safe Zone)
+        # Popup cao khoảng 360px -> Chừa lề trên 420px
+        SAFE_TOP = 150
+        SAFE_BOTTOM = self.screen_h - 150  # Tránh UI bên dưới
+        SAFE_LEFT = 150  # Tránh UI bên trái
+        SAFE_RIGHT = self.screen_w - 150  # Tránh UI bên phải
+
+        drag_x = 0
+        drag_y = 0
+
+        # Tính toán cần kéo bao nhiêu (Drag Vector)
+        # Nguyên tắc: Kéo map đi đâu thì mục tiêu sẽ trôi theo đó
+
+        # Nếu mục tiêu quá cao -> Kéo map xuống (drag_y > 0)
+        if target_y < SAFE_TOP:
+            drag_y = SAFE_TOP - target_y
+        # Nếu mục tiêu quá thấp -> Kéo map lên (drag_y < 0)
+        elif target_y > SAFE_BOTTOM:
+            drag_y = SAFE_BOTTOM - target_y
+
+        # Nếu mục tiêu quá trái -> Kéo map sang phải (drag_x > 0)
+        if target_x < SAFE_LEFT:
+            drag_x = SAFE_LEFT - target_x
+        # Nếu mục tiêu quá phải -> Kéo map sang trái (drag_x < 0)
+        elif target_x > SAFE_RIGHT:
+            drag_x = SAFE_RIGHT - target_x
+
+        # [DEBUG] Vẽ ảnh debug nếu được yêu cầu
+        if debug:
+            screen = self.device.take_screenshot()
+            debug_img = screen.copy()
+
+            # Vẽ Safe Zone (hình chữ nhật xanh dương)
+            cv2.rectangle(debug_img, (SAFE_LEFT, SAFE_TOP), (SAFE_RIGHT, SAFE_BOTTOM), (255, 200, 0), 2)
+            cv2.putText(debug_img, "SAFE ZONE", (SAFE_LEFT + 10, SAFE_TOP + 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 200, 0), 2)
+
+            # Vẽ tâm màn hình
+            cx, cy = self.screen_w // 2, self.screen_h // 2
+            cv2.circle(debug_img, (cx, cy), 8, (255, 255, 255), -1)
+            cv2.putText(debug_img, "CENTER", (cx + 10, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+            # Vẽ vị trí mục tiêu ban đầu (chấm đỏ)
+            cv2.circle(debug_img, (int(target_x), int(target_y)), 12, (0, 0, 255), -1)
+            cv2.putText(debug_img, f"TARGET ({target_x}, {target_y})", (int(target_x) + 15, int(target_y) - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
+            # Tính vị trí mục tiêu mới
+            new_x = int(target_x + drag_x)
+            new_y = int(target_y + drag_y)
+
+            # Nếu có drag thì vẽ thêm
+            if drag_x != 0 or drag_y != 0:
+                # Vẽ vị trí mục tiêu mới (chấm xanh lá)
+                cv2.circle(debug_img, (new_x, new_y), 12, (0, 255, 0), -1)
+                cv2.putText(debug_img, f"NEW ({new_x}, {new_y})", (new_x + 15, new_y + 20),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+                # Vẽ đường nối từ target cũ sang target mới (mũi tên cam)
+                cv2.arrowedLine(debug_img, (int(target_x), int(target_y)), (new_x, new_y),
+                                (0, 165, 255), 3, tipLength=0.2)
+
+                # Vẽ vector drag từ tâm (mũi tên tím)
+                end_drag_x = cx + drag_x
+                end_drag_y = cy + drag_y
+                cv2.arrowedLine(debug_img, (cx, cy), (int(end_drag_x), int(end_drag_y)),
+                                (255, 0, 255), 2, tipLength=0.15)
+                cv2.putText(debug_img, f"DRAG ({drag_x}, {drag_y})", (cx + 10, cy + 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
+
+                status_text = "UNSAFE - NEED DRAG"
+                status_color = (0, 0, 255)
+            else:
+                status_text = "SAFE - NO DRAG NEEDED"
+                status_color = (0, 255, 0)
+
+            # Vẽ status
+            cv2.putText(debug_img, status_text, (10, self.screen_h - 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, status_color, 2)
+
+            # Vẽ legend
+            legend_y = 30
+            cv2.putText(debug_img, "LEGEND:", (10, legend_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            cv2.putText(debug_img, "- Cyan rect: Safe Zone", (10, legend_y + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 200, 0), 1)
+            cv2.putText(debug_img, "- Red dot: Original target", (10, legend_y + 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+            cv2.putText(debug_img, "- Green dot: New target", (10, legend_y + 75), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            cv2.putText(debug_img, "- Orange arrow: Target move", (10, legend_y + 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+            cv2.putText(debug_img, "- Purple arrow: Drag vector", (10, legend_y + 125), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 1)
+
+            # Lưu ảnh debug
+            debug_path = os.path.join(os.getcwd(), "debug_safe_zone.png")
+            cv2.imwrite(debug_path, debug_img)
+            print(f"   [DEBUG] Đã lưu ảnh debug Safe Zone: {debug_path}")
+
+        # Thực hiện Drag nếu cần
+        if drag_x != 0 or drag_y != 0:
+            print(f"   [SAFE-GUARD] Mục tiêu ({target_x}, {target_y}) gần rìa. Drag map: ({drag_x}, {drag_y})")
+
+            # Thực hiện Swipe từ giữa màn hình
+            start_sw_x, start_sw_y = self.screen_w // 2, self.screen_h // 2
+            end_sw_x = start_sw_x + drag_x
+            end_sw_y = start_sw_y + drag_y
+
+            # Dùng precise_drag (kéo chậm) để tránh quán tính
+            self.device.precise_drag(start_sw_x, start_sw_y, end_sw_x, end_sw_y)
+
+            # Cập nhật bộ nhớ đường đi (Dead Reckoning)
+            self.camera_offset[0] += drag_x
+            self.camera_offset[1] += drag_y
+
+            # Tính toán tọa độ MỚI của mục tiêu trên màn hình sau khi kéo
+            new_x = int(target_x + drag_x)
+            new_y = int(target_y + drag_y)
+            return new_x, new_y
+
+        # Nếu đã an toàn thì trả về tọa độ cũ
+        return target_x, target_y
+
+    def return_to_base(self):
+        """
+        Sử dụng trí nhớ (camera_offset) để cuộn ngược về nhà.
+        """
+        print(f"   [RETREAT] Đang quay về thành. Offset cần bù: {self.camera_offset}")
+
+        # Lặp lại cho đến khi về gần gốc (sai số < 50px)
+        while abs(self.camera_offset[0]) > 50 or abs(self.camera_offset[1]) > 50:
+            # Vector quay về là NGƯỢC LẠI với offset (-offset)
+            back_x = -self.camera_offset[0]
+            back_y = -self.camera_offset[1]
+
+            # Cắt ngắn mỗi bước đi tối đa 300px để game load kịp
+            step_x = int(np.clip(back_x, -400, 400))
+            step_y = int(np.clip(back_y, -400, 400))
+
+            # Swipe
+            cx, cy = self.screen_w // 2, self.screen_h // 2
+            self.device.precise_drag(cx, cy, cx + step_x, cy + step_y)
+
+            # Trừ dần offset
+            self.camera_offset[0] += step_x
+            self.camera_offset[1] += step_y
+
+        print("   [RETREAT] Đã về khu vực thành. Căn chỉnh tinh lần cuối...")
+        self.reset_camera_to_city()
+
+    # ==========================================================
+    # PHẦN 2: LOGIC TÌM MỤC TIÊU & PHÂN TÍCH
+    # ==========================================================
+
+    def find_border_targets(self, debug=True):
+        """
+        Tìm viền xanh -> Lấy contour -> Tính điểm liền kề (4 hướng) thay vì chéo.
+        debug: Nếu True, sẽ lưu ảnh debug để kiểm tra.
+        """
+        screen = self.device.take_screenshot()
+        # Lọc màu
+        mask = cv2.inRange(screen, self.lower_green, self.upper_green)
+
+        # Tìm đường viền
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # [DEBUG] Tạo bản sao để vẽ debug
+        if debug:
+            debug_img = screen.copy()
+            # Vẽ tất cả contours màu vàng
+            cv2.drawContours(debug_img, contours, -1, (0, 255, 255), 2)
+
+        targets = []
+        if contours:
+            # Lấy contour lớn nhất
+            largest_contour = max(contours, key=cv2.contourArea)
+
+            # [DEBUG] Vẽ contour lớn nhất màu xanh dương đậm
+            if debug:
+                cv2.drawContours(debug_img, [largest_contour], -1, (255, 0, 0), 3)
+
+            # Làm mượt contour
+            epsilon = 0.005 * cv2.arcLength(largest_contour, True)
+            approx = cv2.approxPolyDP(largest_contour, epsilon, True)
+
+            # [DEBUG] Vẽ contour đã làm mượt màu tím
+            if debug:
+                cv2.drawContours(debug_img, [approx], -1, (255, 0, 255), 2)
+
+            # Lấy tâm màn hình (Thành chính)
+            cx, cy = self.screen_w // 2, self.screen_h // 2
+
+            # [DEBUG] Vẽ tâm màn hình
+            if debug:
+                cv2.circle(debug_img, (cx, cy), 10, (0, 0, 255), -1)  # Chấm đỏ tâm
+                cv2.putText(debug_img, "CENTER", (cx + 15, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
+            # Duyệt qua các điểm trên viền
+            for i in range(0, len(approx), 2):  # Step = 5 để không quá dày
+                pt = approx[i][0]
+
+                # [DEBUG] Vẽ điểm trên viền gốc màu xanh lá
+                if debug:
+                    cv2.circle(debug_img, (pt[0], pt[1]), 5, (0, 255, 0), -1)
+
+                # Tính vector từ Tâm -> Điểm Viền
+                vec_x = pt[0] - cx
+                vec_y = pt[1] - cy
+
+                # --- LOGIC MỚI: DOMINANT AXIS ---
+                # Offset cần phải đủ lớn để nhảy sang ô bên cạnh (khoảng 1/2 đến 1 ô)
+                # Bạn cần chỉnh số này cho khớp kích thước ô đất
+                offset = 30
+
+                target_x = pt[0]
+                target_y = pt[1]
+
+                # Kiểm tra trục nào lớn hơn thì đi theo trục đó
+                if abs(vec_x) > abs(vec_y):
+                    # Ưu tiên trục Ngang (Left/Right)
+                    if vec_x > 0:
+                        target_x += offset  # Đi sang Phải
+                    else:
+                        target_x -= offset  # Đi sang Trái
+                else:
+                    # Ưu tiên trục Dọc (Up/Down)
+                    if vec_y > 0:
+                        target_y += offset  # Đi xuống Dưới
+                    else:
+                        target_y -= offset  # Đi lên Trên
+
+                # Làm tròn thành số nguyên
+                target_x = int(target_x)
+                target_y = int(target_y)
+
+                # Chỉ lấy điểm nằm trong màn hình
+                margin = 30
+                if margin < target_x < self.screen_w - margin and margin < target_y < self.screen_h - margin:
+                    targets.append((target_x, target_y))
+
+                    # [DEBUG] Vẽ điểm target màu cam và đường nối
+                    if debug:
+                        cv2.circle(debug_img, (target_x, target_y), 7, (0, 165, 255), -1)  # Cam
+                        cv2.line(debug_img, (pt[0], pt[1]), (target_x, target_y), (0, 165, 255), 1)
+
+        # Sắp xếp: Ưu tiên điểm gần tâm nhất
+        targets.sort(key=lambda p: math.hypot(p[0] - self.screen_w // 2, p[1] - self.screen_h // 2))
+
+        # Lọc bớt các điểm trùng nhau hoặc quá gần nhau (để tránh click lại cùng 1 ô)
+        unique_targets = []
+        for idx, t in enumerate(targets):
+            # Nếu điểm t cách tất cả điểm đã chọn > 40px thì mới lấy
+            if all(math.hypot(t[0] - u[0], t[1] - u[1]) > 40 for u in unique_targets):
+                unique_targets.append(t)
+
+        # [DEBUG] Vẽ các điểm unique_targets cuối cùng với số thứ tự
+        if debug:
+            for idx, t in enumerate(unique_targets):
+                # Vẽ vòng tròn đỏ lớn hơn
+                cv2.circle(debug_img, t, 12, (0, 0, 255), 2)
+                # Đánh số thứ tự
+                cv2.putText(debug_img, str(idx + 1), (t[0] + 15, t[1] + 5),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
+            # Vẽ legend (chú thích)
+            legend_y = 30
+            cv2.putText(debug_img, "LEGEND:", (10, legend_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            cv2.putText(debug_img, "- Yellow: All contours", (10, legend_y + 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+            cv2.putText(debug_img, "- Blue: Largest contour", (10, legend_y + 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+            cv2.putText(debug_img, "- Purple: Smoothed contour", (10, legend_y + 75), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 1)
+            cv2.putText(debug_img, "- Green: Border points", (10, legend_y + 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            cv2.putText(debug_img, "- Orange: Target offset", (10, legend_y + 125), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+            cv2.putText(debug_img, "- Red circle: Final targets", (10, legend_y + 150), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+
+            # Lưu ảnh debug
+            debug_path = os.path.join(os.getcwd(), "debug_border_targets.png")
+            cv2.imwrite(debug_path, debug_img)
+            print(f"   [DEBUG] Đã lưu ảnh debug viền: {debug_path}")
+
+            # Lưu thêm mask để kiểm tra lọc màu
+            mask_path = os.path.join(os.getcwd(), "debug_border_mask.png")
+            cv2.imwrite(mask_path, mask)
+            print(f"   [DEBUG] Đã lưu mask lọc màu: {mask_path}")
+
+        return unique_targets
+
+    def analyze_difficulty(self, screen_img, btn_chiem_pos):
+        """
+        OCR vùng popup để đọc độ khó.
+        """
+        # Crop vùng chứa text độ khó (Bạn cần tinh chỉnh tọa độ này chính xác)
+        # Giả sử popup hiện ngay trên nút chiếm
+        # Tọa độ ước lượng:
+        x1, y1 = btn_chiem_pos[0] - 165, btn_chiem_pos[1] - 57
+        x2, y2 = x1 + 47, y1 + 30
+
+        crop = screen_img[y1:y2, x1:x2]
+
+        # Tiền xử lý ảnh
+        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+        processed = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
+
+        # OCR
+        result = self.ocr.predict(processed)
+        if not result or not result[0]:
+            return False
+
+        texts = [line[1][0] for line in result[0]]
+        full_text = " ".join(texts)
+        print(f"   [OCR-DIG] Đọc được: {full_text}")
+
+        # Check Blacklist
+        for bad in self.blacklist_difficulty:
+            if bad.lower() in full_text.lower():
+                print(f"   [SKIP] Gặp độ khó trong blacklist: {bad}")
+                return False
+
+        return True
+
+    def dispatch_troops(self, btn_chiem_pos, debug=True):
+        """Quy trình xuất quân"""
+        print("   [ACT] Bấm Chiếm...")
+        self.device.tap(btn_chiem_pos[0], btn_chiem_pos[1])
+        time.sleep(2)
+
+        # Tick chọn quân (Tìm tất cả checkbox chưa tick)
+        screen = self.device.take_screenshot()
+        unchecked = self.vision.find_all_templates(screen, self._get_path("checkbox_unchecked.png"), threshold=0.7)
+
+        # [DEBUG] Vẽ debug cho checkbox
+        if debug:
+            debug_img = screen.copy()
+            # Vẽ tất cả checkbox tìm được
+            for idx, pt in enumerate(unchecked):
+                # Vẽ hình chữ nhật xung quanh checkbox (giả định kích thước ~40x40)
+                x1, y1 = pt[0] - 20, pt[1] - 20
+                x2, y2 = pt[0] + 20, pt[1] + 20
+                color = (0, 255, 0) if idx < 5 else (0, 165, 255)  # Xanh nếu sẽ click, cam nếu không
+                cv2.rectangle(debug_img, (x1, y1), (x2, y2), color, 2)
+                cv2.circle(debug_img, (pt[0], pt[1]), 5, color, -1)
+                cv2.putText(debug_img, str(idx + 1), (pt[0] + 25, pt[1] + 5),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+            # Vẽ legend
+            legend_y = 30
+            cv2.putText(debug_img, f"DISPATCH TROOPS - Found {len(unchecked)} checkbox(es)", (10, legend_y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.putText(debug_img, "- Green: Will be clicked (max 5)", (10, legend_y + 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            cv2.putText(debug_img, "- Orange: Skipped (over limit)", (10, legend_y + 55),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+
+            # Lưu ảnh debug
+            debug_path = os.path.join(os.getcwd(), "debug_dispatch_checkbox.png")
+            cv2.imwrite(debug_path, debug_img)
+            print(f"   [DEBUG] Đã lưu ảnh debug checkbox xuất quân: {debug_path}")
+
+        print(f"   [ACT] Tìm thấy {len(unchecked)} checkbox chưa tick.")
+
+        # Click tối đa 5 đạo
+        count = 0
+        for pt in unchecked:
+            if count >= 5:
+                break
+            self.device.tap(pt[0], pt[1])
+            time.sleep(0.2)
+            count += 1
+
+        print(f"   [ACT] Đã tick {count} checkbox.")
+        time.sleep(2)
+
+        # Bấm OK Xuất Chiến
+        btn_ok = self.vision.find_template(screen, self._get_path("btn_ok_xuat_chien.png"), threshold=0.45)
+        if btn_ok:
+            self.device.tap(btn_ok[0], btn_ok[1])
+            print("   [ACT] Đã xuất quân thành công!")
+            return True
+        return False
+
+    # ==========================================================
+    # PHẦN 3: LOGIC CHÍNH (MAIN COMBAT LOOP)
+    # ==========================================================
+
+    def scan_and_dig(self):
+        """
+        Hàm chính được gọi từ main.py
+        Trả về: True nếu đã xuất quân (cần chờ), False nếu không đánh được ai.
+        """
+        # 1. Luôn bắt đầu từ việc Neo Thành Chính
+        if not self.reset_camera_to_city():
+            return False
+
+        # 2. Tìm danh sách mục tiêu tiềm năng (Viền xanh)
+        targets = self.find_border_targets()
+
+        if not targets:
+            print("   [COMBAT] Không thấy viền xanh nào để mở rộng.")
+            return False
+
+        print(f"   [COMBAT] Tìm thấy {len(targets)} điểm tiềm năng.")
+
+        # 3. Duyệt từng mục tiêu
+        for pt in targets:
+            # --- SAFE GUARD: Đảm bảo mục tiêu an toàn ---
+            safe_x, safe_y = self.ensure_target_safe(pt[0], pt[1])
+
+            # --- TAP ---
+            print(f"   [ACT] Tap vào mục tiêu ({safe_x}, {safe_y})")
+            self.device.tap(safe_x, safe_y)
+            time.sleep(1.0)  # Chờ popup
+
+            # --- CHECK: Có hiện nút Chiếm không? ---
+            # Lúc này popup chắc chắn hiện đủ, không lo bị cuộn
+            screen_check = self.device.take_screenshot()
+            btn_chiem = self.vision.find_template(screen_check, self._get_path("btn_chiem.png"), threshold=0.53)
+
+            if btn_chiem:
+                # Phân tích độ khó
+                if self.analyze_difficulty(screen_check, btn_chiem):
+                    # Tiến hành đánh
+                    if self.dispatch_troops(btn_chiem):
+                        # Lưu ý: Lúc này Camera đang lệch (do ensure_target_safe).
+                        # Ta KHÔNG reset camera ngay, mà để main.py chờ kết quả xong mới gọi retreat.
+                        return True
+                else:
+                    # Khó quá -> Tap lại vào safe_x, safe_y để đóng popup
+                    print("   [COMBAT] Mục tiêu quá khó hoặc nằm trong blacklist. Bỏ qua.")
+                    self.device.tap(safe_x, safe_y)
+            else:
+                # Click trượt hoặc đất mình -> Tap lại để reset
+                print("   [COMBAT] Không thấy nút Chiếm (có thể click trượt hoặc đất không phải của mình).")
+                self.device.tap(safe_x, safe_y)
+
+            # Nếu thất bại điểm này, reset camera về thành để lấy lại mốc chuẩn cho điểm tiếp theo
+            print("   [COMBAT] Reset camera về thành để thử mục tiêu tiếp theo...")
+            self.return_to_base()
+
+        return False
+
+    def retreat_troops_logic(self, debug=True):
+        """
+        Quy trình rút quân về thành.
+        debug: Nếu True, sẽ lưu ảnh debug để kiểm tra.
+        """
+        print("   [RETREAT] Bắt đầu quy trình rút quân...")
+
+        # 1. Quay về thành (Dùng Dead Reckoning)
+        self.return_to_base()
+
+        # 2. Bấm vào Thành Chính (đã ở giữa màn hình)
+        cx, cy = self.screen_w // 2, self.screen_h // 2
+        self.device.tap(cx, cy)
+        time.sleep(1.5)
+
+        # 3. Tìm nút Hành Quân
+        screen = self.device.take_screenshot()
+        btn_hanh_quan = self.vision.find_template(screen, self._get_path("btn_hanh_quan_map.png"))
+
+        if btn_hanh_quan:
+            self.device.tap(btn_hanh_quan[0], btn_hanh_quan[1])
+            time.sleep(2)
+
+            # 4. Chọn tất cả quân
+            screen_select = self.device.take_screenshot()
+            unchecked = self.vision.find_all_templates(screen_select, self._get_path("checkbox_unchecked.png"),
+                                                       threshold=0.7)
+
+            # [DEBUG] Vẽ debug cho checkbox rút quân
+            if debug:
+                debug_img = screen_select.copy()
+                # Vẽ tất cả checkbox tìm được
+                for idx, pt in enumerate(unchecked):
+                    # Vẽ hình chữ nhật xung quanh checkbox
+                    x1, y1 = pt[0] - 20, pt[1] - 20
+                    x2, y2 = pt[0] + 20, pt[1] + 20
+                    cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.circle(debug_img, (pt[0], pt[1]), 5, (0, 255, 0), -1)
+                    cv2.putText(debug_img, str(idx + 1), (pt[0] + 25, pt[1] + 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+                # Vẽ legend
+                legend_y = 30
+                cv2.putText(debug_img, f"RETREAT TROOPS - Found {len(unchecked)} checkbox(es)", (10, legend_y),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                cv2.putText(debug_img, "- Green: Checkbox to click (all)", (10, legend_y + 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+
+                # Lưu ảnh debug
+                debug_path = os.path.join(os.getcwd(), "debug_retreat_checkbox.png")
+                cv2.imwrite(debug_path, debug_img)
+                print(f"   [DEBUG] Đã lưu ảnh debug checkbox rút quân: {debug_path}")
+
+            print(f"   [ACT] Tìm thấy {len(unchecked)} checkbox chưa tick (rút quân).")
+
+            for pt in unchecked:
+                self.device.tap(pt[0], pt[1])
+                time.sleep(0.2)
+            time.sleep(2)
+
+            # 5. OK
+            btn_ok = self.vision.find_template(screen_select, self._get_path("btn_ok_xuat_chien.png"), threshold=0.45)
+            if btn_ok:
+                self.device.tap(btn_ok[0], btn_ok[1])
+                print("   [DONE] Đã ra lệnh rút quân thành công.")
+                return True
+
+        print("   [FAIL] Lỗi khi rút quân (Không thấy nút hành quân).")
+        # Tap ra ngoài để đóng popup
+        self.device.tap(2, 2)
+        return False

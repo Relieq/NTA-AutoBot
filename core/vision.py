@@ -66,6 +66,7 @@ class VisionManager:
             List các tuple (center_x, center_y) sắp xếp theo y tăng dần, hoặc [] nếu không tìm thấy
         """
         threshold = threshold if threshold is not None else self.threshold
+        print(f'Threshold: {threshold}')
 
         # 1. Đọc ảnh mẫu
         template = cv2.imread(template_path)
