@@ -19,7 +19,7 @@ class CombatManager:
 
         # Cấu hình danh sách đen (Blacklist độ khó)
         # Nếu gặp các từ này trong tên đất thì bỏ qua
-        self.blacklist_difficulty = ["Tăng bậc 2", "Tăng bậc 3", "Địa ngục", "Khó"]
+        self.blacklist_difficulty = ["Tăng bậc 2", "Tăng bậc 3", "Địa ngục", "Khó 1", "Khó 2", "Khó 3"]
 
         # [CẤU HÌNH MÀU SẮC]
         # Màu viền xanh lá cây của lãnh thổ (Hệ màu BGR của OpenCV)
@@ -189,7 +189,7 @@ class CombatManager:
                         0.5, (255, 0, 255), 1)
 
             # Lưu ảnh debug
-            debug_path = os.path.join(os.getcwd(), "debug_safe_zone.png")
+            debug_path = os.path.join(os.getcwd(), "debug_img", "debug_safe_zone.png")
             cv2.imwrite(debug_path, debug_img)
             print(f"   [DEBUG] Đã lưu ảnh debug Safe Zone: {debug_path}")
 
@@ -378,12 +378,12 @@ class CombatManager:
                         0.5, (0, 0, 255), 1)
 
             # Lưu ảnh debug
-            debug_path = os.path.join(os.getcwd(), "debug_border_targets.png")
+            debug_path = os.path.join(os.getcwd(), "debug_img", "debug_border_targets.png")
             cv2.imwrite(debug_path, debug_img)
             print(f"   [DEBUG] Đã lưu ảnh debug viền: {debug_path}")
 
             # Lưu thêm mask để kiểm tra lọc màu
-            mask_path = os.path.join(os.getcwd(), "debug_border_mask.png")
+            mask_path = os.path.join(os.getcwd(), "debug_img", "debug_border_mask.png")
             cv2.imwrite(mask_path, mask)
             print(f"   [DEBUG] Đã lưu mask lọc màu: {mask_path}")
 
@@ -475,12 +475,12 @@ class CombatManager:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 200), 1)
 
             # Lưu ảnh debug tổng thể
-            debug_path = os.path.join(os.getcwd(), "debug_ocr_difficulty.png")
+            debug_path = os.path.join(os.getcwd(), "debug_img", "debug_ocr_difficulty.png")
             cv2.imwrite(debug_path, debug_img)
             print(f"   [DEBUG] Đã lưu ảnh debug OCR: {debug_path}")
 
             # Lưu thêm ảnh crop gốc
-            crop_path = os.path.join(os.getcwd(), "debug_ocr_crop_only.png")
+            crop_path = os.path.join(os.getcwd(), "debug_img", "debug_ocr_crop_only.png")
             cv2.imwrite(crop_path, crop)
             print(f"   [DEBUG] Đã lưu ảnh crop gốc: {crop_path}")
 
@@ -511,40 +511,6 @@ class CombatManager:
             self.device.tap(2, 2)
             return False
 
-        # Tick chọn quân (Tìm tất cả checkbox chưa tick)
-        screen = self.device.take_screenshot()
-        unchecked = self.vision.find_all_templates(screen, self._get_path("checkbox_unchecked.png"), threshold=0.7)
-
-        # [DEBUG] Vẽ debug cho checkbox
-        if debug:
-            debug_img = screen.copy()
-            # Vẽ tất cả checkbox tìm được
-            for idx, pt in enumerate(unchecked):
-                # Vẽ hình chữ nhật xung quanh checkbox (giả định kích thước ~40x40)
-                x1, y1 = pt[0] - 20, pt[1] - 20
-                x2, y2 = pt[0] + 20, pt[1] + 20
-                color = (0, 255, 0) if idx < 5 else (0, 165, 255)  # Xanh nếu sẽ click, cam nếu không
-                cv2.rectangle(debug_img, (x1, y1), (x2, y2), color, 2)
-                cv2.circle(debug_img, (pt[0], pt[1]), 5, color, -1)
-                cv2.putText(debug_img, str(idx + 1), (pt[0] + 25, pt[1] + 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-
-            # Vẽ legend
-            legend_y = 30
-            cv2.putText(debug_img, f"DISPATCH TROOPS - Found {len(unchecked)} checkbox(es)", (10, legend_y),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-            cv2.putText(debug_img, "- Green: Will be clicked (max 5)", (10, legend_y + 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-            cv2.putText(debug_img, "- Orange: Skipped (over limit)", (10, legend_y + 55),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
-
-            # Lưu ảnh debug
-            debug_path = os.path.join(os.getcwd(), "debug_dispatch_checkbox.png")
-            cv2.imwrite(debug_path, debug_img)
-            print(f"   [DEBUG] Đã lưu ảnh debug checkbox xuất quân: {debug_path}")
-
-        print(f"   [ACT] Tìm thấy {len(unchecked)} checkbox chưa tick.")
-
         # Click tối đa 5 đạo (có swipe để cuộn danh sách nếu cần)
         count = 0
         max_troops = 5
@@ -557,13 +523,38 @@ class CombatManager:
             # Tìm checkbox trong màn hình hiện tại
             current_screen = self.device.take_screenshot()
             unchecked = self.vision.find_all_templates(current_screen, self._get_path("checkbox_unchecked.png"),
-                                                       threshold=0.8)
+                                                       threshold=0.7)
 
             if not unchecked:
                 print(f"   [ACT] Vòng {swipe_round + 1}: Không còn checkbox nào.")
                 break
 
             print(f"   [ACT] Vòng {swipe_round + 1}: Tìm thấy {len(unchecked)} checkbox.")
+
+            # [DEBUG] Vẽ debug cho checkbox (mỗi vòng swipe)
+            if debug:
+                debug_img = current_screen.copy()
+                remaining = max_troops - count  # Số checkbox còn có thể click
+                for idx, pt in enumerate(unchecked):
+                    x1, y1 = pt[0] - 20, pt[1] - 20
+                    x2, y2 = pt[0] + 20, pt[1] + 20
+                    color = (0, 255, 0) if idx < remaining else (0, 165, 255)
+                    cv2.rectangle(debug_img, (x1, y1), (x2, y2), color, 2)
+                    cv2.circle(debug_img, (pt[0], pt[1]), 5, color, -1)
+                    cv2.putText(debug_img, str(idx + 1), (pt[0] + 25, pt[1] + 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+                legend_y = 30
+                cv2.putText(debug_img, f"DISPATCH - Round {swipe_round + 1}: {len(unchecked)} checkbox, already ticked: {count}/{max_troops}",
+                            (10, legend_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                cv2.putText(debug_img, "- Green: Will click this round", (10, legend_y + 25),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                cv2.putText(debug_img, "- Orange: Skipped (over limit)", (10, legend_y + 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+
+                debug_path = os.path.join(os.getcwd(), "debug_img", f"debug_dispatch_checkbox_round{swipe_round + 1}.png")
+                cv2.imwrite(debug_path, debug_img)
+                print(f"   [DEBUG] Đã lưu ảnh debug checkbox vòng {swipe_round + 1}: {debug_path}")
 
             # Tick các checkbox tìm được (tối đa còn lại)
             for pt in unchecked:
@@ -579,9 +570,9 @@ class CombatManager:
                 # Swipe từ dưới lên trên (kéo danh sách xuống) trong vùng cửa sổ chọn quân
                 # Giả định vùng checkbox ở giữa màn hình
                 swipe_x = self.screen_w // 2
-                swipe_start_y = self.screen_h // 2 + 150
-                swipe_end_y = self.screen_h // 2 - 150
-                self.device.swipe(swipe_x, swipe_start_y, swipe_x, swipe_end_y, duration=300)
+                swipe_start_y = self.screen_h // 2 + 125
+                swipe_end_y = self.screen_h // 2 - 125
+                self.device.precise_drag(swipe_x, swipe_start_y, swipe_x, swipe_end_y, duration=2000)
                 time.sleep(1.0)
 
         print(f"   [ACT] Đã tick tổng cộng {count} checkbox.")
@@ -679,7 +670,7 @@ class CombatManager:
             debug_img = screen.copy()
             cv2.circle(debug_img, (cx, cy), 10, (255, 0, 0), -1)
             cv2.putText(debug_img, "TAP CITY CENTER", (cx + 15, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
-            debug_path = os.path.join(os.getcwd(), "debug_retreat_tap_city.png")
+            debug_path = os.path.join(os.getcwd(), "debug_img", "debug_retreat_tap_city.png")
             cv2.imwrite(debug_path, debug_img)
             print(f"   [DEBUG] Đã lưu ảnh debug tap thành chính: {debug_path}")
         self.device.tap(cx, cy)
@@ -693,39 +684,7 @@ class CombatManager:
             self.device.tap(btn_hanh_quan[0], btn_hanh_quan[1])
             time.sleep(2)
 
-            # 4. Chọn tất cả quân
-            screen_select = self.device.take_screenshot()
-            unchecked = self.vision.find_all_templates(screen_select, self._get_path("checkbox_unchecked.png"),
-                                                       threshold=0.7)
-
-            # [DEBUG] Vẽ debug cho checkbox rút quân
-            if debug:
-                debug_img = screen_select.copy()
-                # Vẽ tất cả checkbox tìm được
-                for idx, pt in enumerate(unchecked):
-                    # Vẽ hình chữ nhật xung quanh checkbox
-                    x1, y1 = pt[0] - 20, pt[1] - 20
-                    x2, y2 = pt[0] + 20, pt[1] + 20
-                    cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.circle(debug_img, (pt[0], pt[1]), 5, (0, 255, 0), -1)
-                    cv2.putText(debug_img, str(idx + 1), (pt[0] + 25, pt[1] + 5),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-
-                # Vẽ legend
-                legend_y = 30
-                cv2.putText(debug_img, f"RETREAT TROOPS - Found {len(unchecked)} checkbox(es)", (10, legend_y),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                cv2.putText(debug_img, "- Green: Checkbox to click (all)", (10, legend_y + 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-
-                # Lưu ảnh debug
-                debug_path = os.path.join(os.getcwd(), "debug_retreat_checkbox.png")
-                cv2.imwrite(debug_path, debug_img)
-                print(f"   [DEBUG] Đã lưu ảnh debug checkbox rút quân: {debug_path}")
-
-            print(f"   [ACT] Tìm thấy {len(unchecked)} checkbox chưa tick (rút quân).")
-
-            # Tick tất cả checkbox (có swipe để cuộn danh sách nếu cần)
+            # 4. Chọn tất cả quân (có swipe để cuộn danh sách nếu cần)
             count = 0
             max_troops = 5
             max_swipe_rounds = 3  # Giới hạn số lần swipe để tránh loop vô hạn
@@ -740,10 +699,35 @@ class CombatManager:
                                                            threshold=0.7)
 
                 if not unchecked:
-                    print(f"   [ACT] Vòng {swipe_round + 1}: Không còn checkbox nào.")
+                    print(f"   [ACT] Vòng {swipe_round + 1}: Không còn checkbox nào (rút quân).")
                     break
 
                 print(f"   [ACT] Vòng {swipe_round + 1}: Tìm thấy {len(unchecked)} checkbox (rút quân).")
+
+                # [DEBUG] Vẽ debug cho checkbox rút quân (mỗi vòng swipe)
+                if debug:
+                    debug_img = current_screen.copy()
+                    remaining = max_troops - count  # Số checkbox còn có thể click
+                    for idx, pt in enumerate(unchecked):
+                        x1, y1 = pt[0] - 20, pt[1] - 20
+                        x2, y2 = pt[0] + 20, pt[1] + 20
+                        color = (0, 255, 0) if idx < remaining else (0, 165, 255)
+                        cv2.rectangle(debug_img, (x1, y1), (x2, y2), color, 2)
+                        cv2.circle(debug_img, (pt[0], pt[1]), 5, color, -1)
+                        cv2.putText(debug_img, str(idx + 1), (pt[0] + 25, pt[1] + 5),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+                    legend_y = 30
+                    cv2.putText(debug_img, f"RETREAT - Round {swipe_round + 1}: {len(unchecked)} checkbox, already ticked: {count}/{max_troops}",
+                                (10, legend_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    cv2.putText(debug_img, "- Green: Will click this round", (10, legend_y + 25),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    cv2.putText(debug_img, "- Orange: Skipped (over limit)", (10, legend_y + 50),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+
+                    debug_path = os.path.join(os.getcwd(), "debug_img", f"debug_retreat_checkbox_round{swipe_round + 1}.png")
+                    cv2.imwrite(debug_path, debug_img)
+                    print(f"   [DEBUG] Đã lưu ảnh debug checkbox rút quân vòng {swipe_round + 1}: {debug_path}")
 
                 # Tick các checkbox tìm được (tối đa còn lại)
                 for pt in unchecked:
@@ -758,8 +742,8 @@ class CombatManager:
                     print(f"   [ACT] Đã tick {count}/{max_troops}. Swipe để tìm thêm quân...")
                     # Swipe từ dưới lên trên (kéo danh sách xuống) trong vùng cửa sổ chọn quân
                     swipe_x = self.screen_w // 2
-                    swipe_start_y = self.screen_h // 2 + 150
-                    swipe_end_y = self.screen_h // 2 - 150
+                    swipe_start_y = self.screen_h // 2 + 125
+                    swipe_end_y = self.screen_h // 2 - 125
                     self.device.swipe(swipe_x, swipe_start_y, swipe_x, swipe_end_y, duration=300)
                     time.sleep(1.0)
 
@@ -815,7 +799,7 @@ class CombatManager:
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
                     # Lưu ảnh debug
-                    debug_path = os.path.join(os.getcwd(), "debug_retreat_btn_ok2.png")
+                    debug_path = os.path.join(os.getcwd(), "debug_img", "debug_retreat_btn_ok2.png")
                     cv2.imwrite(debug_path, debug_img)
                     print(f"   [DEBUG] Đã lưu ảnh debug btn_ok2: {debug_path}")
 

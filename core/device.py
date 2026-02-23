@@ -49,13 +49,12 @@ class DeviceManager:
             self.device.shell(f"input swipe {x1} {y1} {x2} {y2} {duration}")
             time.sleep(1)
 
-    def precise_drag(self, start_x, start_y, end_x, end_y):
+    def precise_drag(self, start_x, start_y, end_x, end_y, duration = 1500):
         """
         Kéo thả chậm để không gây ra quán tính (Inertia).
         Giúp map dừng lại chính xác tại điểm thả tay.
         """
         # Thời gian kéo dài (ví dụ 1000ms - 2000ms) giúp loại bỏ đà trôi
-        duration = 1500
         cmd = f"input swipe {start_x} {start_y} {end_x} {end_y} {duration}"
         if self.device:
             self.device.shell(cmd)

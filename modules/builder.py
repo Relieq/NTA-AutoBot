@@ -64,17 +64,17 @@ class BuilderManager:
             cv2.putText(debug_img, f"Crop: ({x1},{y1}) - ({x2},{y2})",
                         (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             # Lưu ảnh debug
-            debug_path = os.path.join(os.getcwd(), "debug_crop_level.png")
+            debug_path = os.path.join(os.getcwd(), "debug_img", "debug_crop_level.png")
             cv2.imwrite(debug_path, debug_img)
             print(f"   [DEBUG] Đã lưu ảnh debug: {debug_path}")
 
             # Lưu ảnh crop gốc
-            crop_debug_path = os.path.join(os.getcwd(), "debug_crop_only.png")
+            crop_debug_path = os.path.join(os.getcwd(), "debug_img", "debug_crop_only.png")
             cv2.imwrite(crop_debug_path, crop_img)
             print(f"   [DEBUG] Đã lưu ảnh crop gốc: {crop_debug_path}")
 
             # Lưu ảnh đã xử lý (ảnh mà OCR sẽ đọc)
-            processed_debug_path = os.path.join(os.getcwd(), "debug_crop_processed.png")
+            processed_debug_path = os.path.join(os.getcwd(), "debug_img", "debug_crop_processed.png")
             cv2.imwrite(processed_debug_path, processed_img)
             print(f"   [DEBUG] Đã lưu ảnh đã xử lý: {processed_debug_path}")
 
