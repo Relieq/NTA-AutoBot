@@ -1,6 +1,7 @@
 from core.device import DeviceManager
 from core.vision import VisionManager
 from modules.builder import BuilderManager
+from modules.captcha import CaptchaSolver
 from modules.daily_task import DailyTaskManager
 from modules.scene import SceneManager
 from modules.combat import CombatManager
@@ -13,11 +14,15 @@ def main():
     device = DeviceManager()
     vision = VisionManager()
 
+    # Khởi tạo CaptchaSolver (Load model ONNX vào RAM 1 lần duy nhất)
+    print("--- ĐANG TẢI MODEL AI GIẢI CAPTCHA ---")
+    captcha_solver = CaptchaSolver()
+
     # Khởi tạo các module
-    builder = BuilderManager(device, vision)
+    builder = BuilderManager(device, vision, captcha_solver)
     daily = DailyTaskManager(device, vision)
     scene = SceneManager(device, vision)
-    combat = CombatManager(device, vision)
+    combat = CombatManager(device, vision, captcha_solver)
 
     # === BỘ NHỚ TRẠNG THÁI (STATE MEMORY) ===
     bot_state = {

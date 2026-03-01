@@ -6,11 +6,14 @@ import numpy as np
 import math
 import easyocr
 
+from modules.captcha import CaptchaSolver
+
 
 class CombatManager:
-    def __init__(self, device, vision):
+    def __init__(self, device, vision, captcha_solver=None):
         self.device = device
         self.vision = vision
+        self.captcha_solver = captcha_solver  # Nhận instance từ main.py
         self.assets_dir = os.path.join(os.getcwd(), "assets")
 
         # Khởi tạo EasyOCR - hỗ trợ tiếng Việt
@@ -38,6 +41,40 @@ class CombatManager:
 
     def _get_path(self, filename):
         return os.path.join(self.assets_dir, filename)
+
+    def safe_wait_and_check(self, wait_time=1.5):
+        """
+        Đợi và kiểm tra xem Captcha có xuất hiện sau một hành động không.
+        Trả về:
+            "OK": Không có Captcha, hành động diễn ra bình thường.
+            "INTERRUPTED": Có Captcha và đã giải xong -> Cần thực hiện lại hành động từ đầu.
+            "FATAL": Có Captcha nhưng giải thất bại -> Dừng bot.
+        """
+        # 1. Chờ xem game có ném popup Captcha ra không
+        time.sleep(wait_time)
+
+        # Nếu chưa có tính năng Captcha thì coi như OK
+        if not self.captcha_solver:
+            return "OK"
+
+        screen = self.device.take_screenshot()
+
+        # 2. Kiểm tra xem có Captcha không
+        if self.captcha_solver.detect_captcha(screen):
+            print("\n   [!!! BÁO ĐỘNG !!!] PHÁT HIỆN CAPTCHA! Đang tiến hành giải mã...")
+
+            # 3. Gọi AI giải Captcha
+            success = self.captcha_solver.solve(self.device, screen)
+
+            if success:
+                print("   [INTERRUPT] Giải Captcha thành công! Popup cũ đã bị game đóng, cần thực hiện lại hành động.")
+                time.sleep(2)  # Chờ game ổn định lại sau khi đóng captcha
+                return "INTERRUPTED"
+            else:
+                print("   [FATAL] KHÔNG THỂ GIẢI CAPTCHA! Dừng Bot để bảo vệ tài khoản.")
+                return "FATAL"
+
+        return "OK"
 
     # ==========================================================
     # PHẦN 1: HỆ THỐNG NAVIGATION (DI CHUYỂN & NEO)
@@ -500,11 +537,11 @@ class CombatManager:
         """Quy trình xuất quân"""
         print("   [ACT] Bấm Chiếm...")
         self.device.tap(btn_chiem_pos[0], btn_chiem_pos[1])
-        time.sleep(2)
+        time.sleep(4)
 
         # Kiểm tra nút Chiếm có còn không
         screen_check = self.device.take_screenshot()
-        btn_chiem_check = self.vision.find_template(screen_check, self._get_path("btn_chiem.png"), threshold=0.6)
+        btn_chiem_check = self.vision.find_template(screen_check, self._get_path("btn_chiem.png"), threshold=0.55)
         if btn_chiem_check:
             print("   [ERR] Vẫn thấy nút Chiếm sau khi bấm! Có thể bị click trượt hoặc popup chưa hiện đủ. "
                   "Bỏ qua điểm này.")
@@ -523,7 +560,7 @@ class CombatManager:
             # Tìm checkbox trong màn hình hiện tại
             current_screen = self.device.take_screenshot()
             unchecked = self.vision.find_all_templates(current_screen, self._get_path("checkbox_unchecked.png"),
-                                                       threshold=0.7)
+                                                       threshold=0.75)
 
             if not unchecked:
                 print(f"   [ACT] Vòng {swipe_round + 1}: Không còn checkbox nào.")
@@ -583,6 +620,16 @@ class CombatManager:
         btn_ok = self.vision.find_template(screen_after_tick, self._get_path("btn_ok_xuat_chien.png"), threshold=0.45)
         if btn_ok:
             self.device.tap(btn_ok[0], btn_ok[1])
+
+            # === GỌI HÀM KIỂM TRA CAPTCHA SAU KHI BẤM OK ===
+            status = self.safe_wait_and_check(wait_time=1.5)
+
+            if status == "INTERRUPTED":
+                print("   [ACT] Bị ngắt bởi Captcha. Yêu cầu thử lại lệnh xuất chiến.")
+                return "INTERRUPTED"  # Trả về tín hiệu ngắt
+            elif status == "FATAL":
+                return "FATAL"
+
             print("   [ACT] Đã xuất quân thành công!")
             return True
 
@@ -615,38 +662,55 @@ class CombatManager:
 
         # 3. Duyệt từng mục tiêu
         for pt in targets:
-            # --- SAFE GUARD: Đảm bảo mục tiêu an toàn ---
-            safe_x, safe_y = self.ensure_target_safe(pt[0], pt[1])
+            max_retries_per_tile = 2  # Thử lại tối đa 1 lần nếu dính Captcha
 
-            # --- TAP ---
-            print(f"   [ACT] Tap vào mục tiêu ({safe_x}, {safe_y})")
-            self.device.tap(safe_x, safe_y)
-            time.sleep(1.0)  # Chờ popup
+            for attempt in range(max_retries_per_tile):
+                # --- SAFE GUARD: Đảm bảo mục tiêu an toàn ---
+                safe_x, safe_y = self.ensure_target_safe(pt[0], pt[1])
 
-            # --- CHECK: Có hiện nút Chiếm không? ---
-            # Lúc này popup chắc chắn hiện đủ, không lo bị cuộn
-            screen_check = self.device.take_screenshot()
-            btn_chiem = self.vision.find_template(screen_check, self._get_path("btn_chiem.png"), threshold=0.53,
-                                                  max_retries=3)
-
-            if btn_chiem:
-                # Phân tích độ khó
-                if self.analyze_difficulty(screen_check, btn_chiem):
-                    # Tiến hành đánh
-                    if self.dispatch_troops(btn_chiem):
-                        # Lưu ý: Lúc này Camera đang lệch (do ensure_target_safe).
-                        # Ta KHÔNG reset camera ngay, mà để main.py chờ kết quả xong mới gọi retreat.
-                        return True
-                else:
-                    # Khó quá -> Tap lại vào safe_x, safe_y để đóng popup
-                    print("   [COMBAT] Mục tiêu quá khó hoặc nằm trong blacklist. Bỏ qua.")
-                    self.device.tap(safe_x, safe_y)
-            else:
-                # Click trượt hoặc đất mình -> Tap lại để reset
-                print("   [COMBAT] Không thấy nút Chiếm (có thể click trượt hoặc đất không phải của mình).")
+                # --- TAP ---
+                print(f"   [ACT] Tap vào mục tiêu ({safe_x}, {safe_y}) - Lần thử (captcha) {attempt + 1}")
                 self.device.tap(safe_x, safe_y)
+                time.sleep(1.0)  # Chờ popup
 
-            # Nếu thất bại điểm này, reset camera về thành để lấy lại mốc chuẩn cho điểm tiếp theo
+                # --- CHECK: Có hiện nút Chiếm không? ---
+                screen_check = self.device.take_screenshot()
+                btn_chiem = self.vision.find_template(screen_check, self._get_path("btn_chiem.png"), threshold=0.53,
+                                                      max_retries=3)
+
+                if btn_chiem:
+                    # Phân tích độ khó
+                    if self.analyze_difficulty(screen_check, btn_chiem, debug=False):
+                        # Tiến hành đánh
+                        dispatch_status = self.dispatch_troops(btn_chiem)
+
+                        if dispatch_status == True:
+                            # Thành công, thoát hoàn toàn
+                            return True
+                        elif dispatch_status == "INTERRUPTED":
+                            # Dính Captcha và đã giải xong -> Vòng lặp attempt sẽ tiếp tục chạy lại
+                            print("   [COMBAT] Hành động bị ngắt do Captcha. Đang thử lại ô đất này...")
+                            time.sleep(1.5)  # Chờ UI game ổn định trước khi tap lại
+                            continue
+                        elif dispatch_status == "FATAL":
+                            # Lỗi giải Captcha -> Dừng hẳn hoặc return False
+                            return False
+                        else:
+                            # False bình thường (lỗi không thấy nút OK v.v...) -> Bỏ qua ô này
+                            self.device.tap(safe_x, safe_y)
+                            break
+                    else:
+                        # Khó quá -> Tap lại vào safe_x, safe_y để đóng popup và thử ô khác
+                        print("   [COMBAT] Mục tiêu quá khó hoặc nằm trong blacklist. Bỏ qua.")
+                        self.device.tap(safe_x, safe_y)
+                        break  # Break vòng lặp attempt để sang pt tiếp theo
+                else:
+                    # Click trượt hoặc đất mình -> Tap lại để reset
+                    print("   [COMBAT] Không thấy nút Chiếm (có thể click trượt hoặc đất không phải của mình).")
+                    self.device.tap(safe_x, safe_y)
+                    break  # Break vòng lặp attempt để sang pt tiếp theo
+
+            # Nếu thất bại điểm này (dù đã thử lại), reset camera về thành để lấy lại mốc chuẩn
             print("   [COMBAT] Reset camera về thành để thử mục tiêu tiếp theo...")
             self.return_to_base()
 
@@ -696,7 +760,7 @@ class CombatManager:
                 # Tìm checkbox trong màn hình hiện tại
                 current_screen = self.device.take_screenshot()
                 unchecked = self.vision.find_all_templates(current_screen, self._get_path("checkbox_unchecked.png"),
-                                                           threshold=0.7)
+                                                           threshold=0.75)
 
                 if not unchecked:
                     print(f"   [ACT] Vòng {swipe_round + 1}: Không còn checkbox nào (rút quân).")
@@ -755,6 +819,16 @@ class CombatManager:
             btn_ok = self.vision.find_template(screen_after_tick, self._get_path("btn_ok_xuat_chien.png"), threshold=0.45)
             if btn_ok:
                 self.device.tap(btn_ok[0], btn_ok[1])
+
+                # === GỌI HÀM KIỂM TRA CAPTCHA SAU KHI BẤM OK ===
+                status = self.safe_wait_and_check(wait_time=1.5)
+
+                if status == "INTERRUPTED":
+                    print("   [ACT] Bị ngắt bởi Captcha. Yêu cầu thử lại lệnh xuất chiến.")
+                    return "INTERRUPTED"  # Trả về tín hiệu ngắt
+                elif status == "FATAL":
+                    return "FATAL"
+
                 time.sleep(3)
 
                 # Chụp màn hình mới để kiểm tra btn_ok2
