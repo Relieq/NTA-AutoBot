@@ -1,4 +1,5 @@
 from core.device import DeviceManager
+from core.map_core import MapManager
 from core.vision import VisionManager
 from modules.builder import BuilderManager
 from modules.captcha import CaptchaSolver
@@ -11,6 +12,10 @@ import time
 
 def main():
     print("--- KHỞI ĐỘNG SUPER BOT NTA ---")
+    # 1. Khởi tạo Bản đồ số ngay từ đầu (Tương tác qua Terminal)
+    map_manager = MapManager()
+    map_manager.load_or_create_map()
+
     device = DeviceManager()
     vision = VisionManager()
 
@@ -22,7 +27,7 @@ def main():
     builder = BuilderManager(device, vision, captcha_solver)
     daily = DailyTaskManager(device, vision)
     scene = SceneManager(device, vision)
-    combat = CombatManager(device, vision, captcha_solver)
+    combat = CombatManager(device, vision, map_manager, captcha_solver)
 
     # === BỘ NHỚ TRẠNG THÁI (STATE MEMORY) ===
     bot_state = {
@@ -78,7 +83,7 @@ def main():
 
             # Ở đây dùng logic đơn giản như bạn yêu cầu:
             # Chờ 10 phút (600s) cho chắc chắn thắng
-            if elapsed > 180:
+            if elapsed > 50:
                 print("   [INFO] Đã hết thời gian chờ (10p). Giả định đã thắng/thua xong.")
                 bot_state["combat_status"] = "RETREATING"
 

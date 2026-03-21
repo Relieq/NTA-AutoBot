@@ -66,7 +66,25 @@ Sửa `config/build_order.py` trong `BUILD_SEQUENCE`:
 
 ### Vision threshold
 - Mặc định toàn cục: `VisionManager.threshold` trong `core/vision.py` (hiện là `0.6`)
-- Từng call có thể override threshold riêng
+- Có thể cấu hình theo từng template trong `config/template_profiles.json`
+- Thứ tự ưu tiên khi resolve ngưỡng: `threshold truyền trực tiếp` -> `profile của template` -> `default trong profile` -> `VisionManager.threshold`
+
+Ví dụ profile theo từng nút:
+```json
+{
+  "default": {
+    "threshold": 0.6,
+    "scales": [1.0, 0.95, 1.05],
+    "weights": { "color": 1.0, "gray": 1.0, "edge": 0.98 }
+  },
+  "templates": {
+    "btn_chiem.png": { "threshold": 0.67 },
+    "checkbox_unchecked.png": {
+      "find_all": { "threshold": 0.75, "min_distance": 18 }
+    }
+  }
+}
+```
 
 ### Combat tuning
 Trong `modules/combat.py`:
@@ -106,6 +124,20 @@ Thư mục `debug_img/` được dùng để lưu ảnh phân tích:
 - OCR crop cho level/time/difficulty
 - Checkbox rounds khi dispatch/retreat
 - Kiểm tra nút OK sau retreat
+
+### Debug khoanh vùng template matching
+`VisionManager` hỗ trợ lưu ảnh khoanh vùng cho `find_template`/`find_all_templates` vào `debug_img/vision`.
+
+Bật nhanh bằng biến môi trường:
+```powershell
+$env:VISION_DEBUG = "1"
+python main.py
+```
+
+Tắt debug:
+```powershell
+$env:VISION_DEBUG = "0"
+```
 
 Khi bot click sai/không tìm thấy UI:
 1. Giảm/tăng threshold tại call đó

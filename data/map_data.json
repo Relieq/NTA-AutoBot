@@ -1,0 +1,78 @@
+{
+    "main_city": [
+        488,
+        137
+    ],
+    "grid": {
+        "488,137": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774037490
+        },
+        "489,137": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774037490
+        },
+        "488,138": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774037490
+        },
+        "489,138": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774037490
+        },
+        "488,136": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774037521
+        },
+        "489,136": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774041827
+        },
+        "487,137": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774043225
+        },
+        "490,137": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774043711
+        },
+        "488,139": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774043989
+        },
+        "487,138": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774044217
+        },
+        "489,139": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774044466
+        },
+        "490,138": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774044708
+        },
+        "488,135": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774046349
+        },
+        "487,136": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774124964
+        }
+    }
+}

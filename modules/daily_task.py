@@ -48,9 +48,9 @@ class DailyTaskManager:
     def do_lucky_wheel(self):
         print("\n--- ACTION: Vòng Quay May Mắn ---")
         # 1. Tìm icon ngoài map
-        if self.find_and_tap("icon_vong_quay.png", wait_after=3, threshold=0.6):
+        if self.find_and_tap("icon_vong_quay.png", wait_after=3):
             # 2. Tìm nút Quay bên trong
-            if self.find_and_tap("btn_quay.png", wait_after=4, threshold=0.6):
+            if self.find_and_tap("btn_quay.png", wait_after=4):
                 print("   > Đã quay xong.")
             else:
                 print("   > Không tháy nút quay (Hết lượt?).")
@@ -67,10 +67,10 @@ class DailyTaskManager:
 
         # 1. Tìm và bấm vào Cửa Tiệm
         # (Thử 2 lần cho chắc, lỡ game lag chưa load kịp map)
-        if self.find_and_tap("icon_cua_tiem.png", wait_after=3, retries=2, threshold=0.55):
+        if self.find_and_tap("icon_cua_tiem.png", wait_after=3, retries=2):
 
             # 2. Tìm nút 3 Vàng bên trong
-            if self.find_and_tap("btn_3_vang.png", wait_after=3, threshold=0.65):
+            if self.find_and_tap("btn_3_vang.png", wait_after=3):
                 print("   > Đã nhận 3 vàng thành công!")
                 # Có thể cần bấm OK nếu game hiện popup "Nhận thành công"
                 # Nhưng thường tap ra ngoài là tắt hết.

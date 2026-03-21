@@ -1,0 +1,59 @@
+{
+  "default": {
+    "threshold": 0.6,
+    "scales": [1.0, 0.95, 1.05, 0.9, 1.1],
+    "weights": {
+      "color": 1.0,
+      "gray": 1.0,
+      "edge": 0.98
+    },
+    "min_distance": 20
+  },
+  "templates": {
+    "icon_vong_quay.png": {
+      "threshold": 0.6
+    },
+    "btn_quay.png": {
+      "threshold": 0.6
+    },
+    "icon_cua_tiem.png": {
+      "threshold": 0.55
+    },
+    "btn_3_vang.png": {
+      "threshold": 0.65
+    },
+    "btn_map.png": {
+      "threshold": 0.6
+    },
+    "btn_chiem.png": {
+      "threshold": 0.67
+    },
+    "btn_vao.png": {
+      "threshold": 0.67
+    },
+    "btn_hanh_quan_map.png": {
+      "threshold": 0.67
+    },
+    "btn_ok_xuat_chien.png": {
+      "threshold": 0.5,
+      "weights": {
+        "edge": 1.0
+      }
+    },
+    "btn_xay_dung_menu.png": {
+      "threshold": 0.45,
+      "find_all": {
+        "threshold": 0.45,
+        "min_distance": 24
+      }
+    },
+    "checkbox_unchecked.png": {
+      "find_all": {
+        "threshold": 0.75,
+        "min_distance": 18
+      },
+      "scales": [1.0, 0.95, 1.05]
+    }
+  }
+}
+

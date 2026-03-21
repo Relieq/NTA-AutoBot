@@ -282,7 +282,7 @@ class BuilderManager:
 
             # 3. Tìm TẤT CẢ các nút 'Xây' và chọn nút TRÊN CÙNG (y nhỏ nhất)
             btn_xay_path = self._get_path("btn_xay_confirm.png")
-            all_btn_xay = self.vision.find_all_templates(self.device.take_screenshot(), btn_xay_path, threshold=0.45)
+            all_btn_xay = self.vision.find_all_templates(self.device.take_screenshot(), btn_xay_path)
 
             if all_btn_xay:
                 btn_xay = all_btn_xay[0]
@@ -302,7 +302,7 @@ class BuilderManager:
 
                 # --- KIỂM TRA HẬU QUẢ (Post-Action Check) ---
                 screen_after = self.device.take_screenshot()
-                is_popup_still_open = self.vision.find_template(screen_after, btn_xay_path, threshold=0.45)
+                is_popup_still_open = self.vision.find_template(screen_after, btn_xay_path)
 
                 if is_popup_still_open:
                     print("   [FAIL] Nút Xây vẫn còn. (Nguyên nhân: Thiếu tài nguyên).")
@@ -328,8 +328,10 @@ class BuilderManager:
         print(f"   [CHECK] Kiểm tra: {display_name} (Mục tiêu: Lv {target_lv})")
 
         # Tìm nhà trên map
-        pos = self.vision.find_template(self.device.take_screenshot(), self._get_building_path(img_name + ".png"),
-                                        threshold=0.45)
+        pos = self.vision.find_template(
+            self.device.take_screenshot(),
+            self._get_building_path(img_name + ".png"),
+        )
 
         if not pos:
             print(f"   [-] Không tìm thấy {display_name} trên bản đồ. (Có thể chưa xây?)")
@@ -364,7 +366,7 @@ class BuilderManager:
 
             # 5. Tìm và bấm nút Tăng Cấp
             btn_up_path = self._get_path("btn_tang_cap_vang.png")
-            btn_up = self.vision.find_template(self.device.take_screenshot(), btn_up_path, threshold=0.45)
+            btn_up = self.vision.find_template(self.device.take_screenshot(), btn_up_path)
 
             if btn_up:
                 print("   [ACTION] Thấy nút Tăng Cấp. Đang bấm...")
@@ -382,7 +384,7 @@ class BuilderManager:
 
                 # --- KIỂM TRA HẬU QUẢ ---
                 screen_after = self.device.take_screenshot()
-                is_popup_still_open = self.vision.find_template(screen_after, btn_up_path, threshold=0.45)
+                is_popup_still_open = self.vision.find_template(screen_after, btn_up_path)
 
                 if is_popup_still_open:
                     print("   [FAIL] Nút Tăng Cấp vẫn còn. (Nguyên nhân: Thiếu tài nguyên hoặc Đang bận xây).")

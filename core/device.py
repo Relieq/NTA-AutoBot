@@ -61,6 +61,16 @@ class DeviceManager:
             # Chờ thêm chút xíu cho game render lại khung hình
             time.sleep(0.5)
 
+    def send_keyevent(self, keycode):
+        """Gửi phím cứng Android (vd: 67 là Backspace, 66 là Enter)"""
+        if self.device:
+            self.device.shell(f"input keyevent {keycode}")
+
+    def input_text(self, text):
+        """Nhập văn bản"""
+        if self.device:
+            self.device.shell(f"input text {text}")
+
     def take_screenshot(self):
         """Chụp màn hình và trả về định dạng ảnh OpenCV (numpy array)"""
         if self.device:
