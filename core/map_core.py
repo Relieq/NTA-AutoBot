@@ -1,9 +1,29 @@
 import os
 import json
 import time
+import re
+import unicodedata
 
 
 class MapManager:
+    DIFFICULTY_TIER_ORDER = {
+        "de": 0,
+        "nhap_mon": 1,
+        "thuong": 2,
+        "tang_bac": 3,
+        "kho": 4,
+        "dia_nguc": 5,
+    }
+
+    DIFFICULTY_TIER_LABELS = {
+        "de": "Dễ",
+        "nhap_mon": "Nhập môn",
+        "thuong": "Thường",
+        "tang_bac": "Tăng bậc",
+        "kho": "Khó",
+        "dia_nguc": "Địa ngục",
+    }
+
     def __init__(self):
         self.data_dir = os.path.join(os.getcwd(), "data")
         if not os.path.exists(self.data_dir):
@@ -71,6 +91,66 @@ class MapManager:
         }
         self.save_map()
 
+    @staticmethod
+    def normalize_text(text):
+        if not text:
+            return ""
+
+        text = str(text).strip().lower()
+        text = unicodedata.normalize("NFD", text)
+        text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+        text = text.replace("đ", "d")
+        text = text.replace("v", "n")
+        text = re.sub(r"[^a-z0-9\s]", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    def parse_difficulty(self, text):
+        normalized = self.normalize_text(text)
+        level_match = re.search(r"(\d+)", normalized)
+        level = int(level_match.group(1)) if level_match else 999
+
+        tier_key = None
+        if "dia nguc" in normalized or "dianguc" in normalized:
+            tier_key = "dia_nguc"
+        elif "tang bac" in normalized or "tangbac" in normalized:
+            tier_key = "tang_bac"
+        elif "nhap mon" in normalized or "nhapmon" in normalized:
+            tier_key = "nhap_mon"
+        elif re.search(r"\bthuong\b", normalized):
+            tier_key = "thuong"
+        elif re.search(r"\bkho\b", normalized):
+            tier_key = "kho"
+        elif re.search(r"\bde\b", normalized):
+            tier_key = "de"
+
+        if not tier_key:
+            return {
+                "valid": False,
+                "normalized": normalized,
+                "tier_key": "",
+                "tier_order": 999,
+                "level": level,
+                "label": "",
+                "rank": 999999,
+            }
+
+        tier_order = self.DIFFICULTY_TIER_ORDER[tier_key]
+        label = f"{self.DIFFICULTY_TIER_LABELS[tier_key]} {level}" if level != 999 else self.DIFFICULTY_TIER_LABELS[tier_key]
+        rank = tier_order * 1000 + level
+        return {
+            "valid": True,
+            "normalized": normalized,
+            "tier_key": tier_key,
+            "tier_order": tier_order,
+            "level": level,
+            "label": label,
+            "rank": rank,
+        }
+
+    def get_tile_info(self, x, y):
+        return self.grid.get(f"{x},{y}", {})
+
     def get_tile_state(self, x, y):
         key = f"{x},{y}"
         if key in self.grid:
@@ -104,4 +184,18 @@ class MapManager:
                         if target not in targets:
                             targets.append(target)
 
-        return targets
+        def target_sort_key(target):
+            tx, ty = target
+            tile = self.get_tile_info(tx, ty)
+            state = tile.get("state", "UNKNOWN")
+
+            # Ưu tiên RESOURCE đã biết độ khó (theo tier + level), sau đó RESOURCE mơ hồ, cuối cùng UNKNOWN.
+            if state == "RESOURCE":
+                parsed = self.parse_difficulty(tile.get("difficulty", ""))
+                if parsed["valid"]:
+                    return 0, parsed["tier_order"], parsed["level"], tx, ty
+                return 1, 999, 999, tx, ty
+
+            return 2, 999, 999, tx, ty
+
+        return sorted(targets, key=target_sort_key)

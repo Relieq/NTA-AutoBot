@@ -24,6 +24,7 @@ class CombatManager:
         # Cấu hình danh sách đen (Blacklist độ khó)
         # Nếu gặp các từ này trong tên đất thì bỏ qua
         self.blacklist_difficulty = ["Tăng bậc 2", "Tăng bậc 3", "Địa ngục", "Khó 1", "Khó 2", "Khó 3"]
+        self.blacklist_difficulty_norm = [self.map.normalize_text(item) for item in self.blacklist_difficulty]
 
         # [CẤU HÌNH MÀU SẮC]
         # Màu viền xanh lá cây của lãnh thổ (Hệ màu BGR của OpenCV)
@@ -65,6 +66,12 @@ class CombatManager:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
         return True
 
+    def _is_blacklisted_difficulty(self, normalized_text):
+        for bad in self.blacklist_difficulty_norm:
+            if bad and bad in normalized_text:
+                return True
+        return False
+
     def safe_wait_and_check(self, wait_time=1.5):
         """
         Đợi và kiểm tra xem Captcha có xuất hiện sau một hành động không.
@@ -98,360 +105,6 @@ class CombatManager:
                 return "FATAL"
 
         return "OK"
-
-    # ==========================================================
-    # PHẦN 1: HỆ THỐNG NAVIGATION (DI CHUYỂN & NEO)
-    # ==========================================================
-
-    # def reset_camera_to_city(self, max_retries=3):
-    #     """
-    #     Tìm Thành Chính và kéo nó về giữa màn hình để làm mốc tọa độ (0,0).
-    #     Sẽ thử lại tối đa max_retries lần nếu không tìm thấy.
-    #     """
-    #     print("   [NAV] Đang Reset Camera về Thành Chính (Neo)...")
-    #     center_x, center_y = self.screen_w // 2, self.screen_h // 2
-    #
-    #     for attempt in range(1, max_retries + 1):
-    #         screen = self.device.take_screenshot()
-    #
-    #         # Tìm ảnh thành chính trên map
-    #         # Lưu ý: threshold thấp một chút vì map có thể bị zoom hoặc đổi màu nhẹ
-    #         city_pos = self.vision.find_template(screen, self._get_path("thanh_chinh_map.png"), threshold=0.45)
-    #
-    #         if city_pos:
-    #             # Tính độ lệch so với tâm màn hình
-    #             dx = center_x - city_pos[0]
-    #             dy = center_y - city_pos[1]
-    #
-    #             # Nếu lệch quá 50px thì kéo về giữa
-    #             if abs(dx) > 50 or abs(dy) > 50:
-    #                 print(f"   [NAV] Thành lệch ({dx}, {dy}). Đang kéo về giữa...")
-    #                 # Kéo map: Swipe từ vị trí thành về tâm
-    #                 self.device.precise_drag(city_pos[0], city_pos[1], center_x, center_y)
-    #                 time.sleep(1.5)
-    #
-    #             # Reset biến nhớ
-    #             self.camera_offset = [0, 0]
-    #             print("   [NAV] Đã Neo thành công. Offset = [0, 0]")
-    #             return True
-    #         else:
-    #             print(f"   [NAV-WARN] Lần {attempt}/{max_retries}: Không tìm thấy Thành Chính. Đang thử lại...")
-    #             if attempt < max_retries:
-    #                 # Chờ một chút và thử zoom out hoặc kéo ngẫu nhiên để tìm lại
-    #                 time.sleep(1.0)
-    #                 # Kéo map một chút về hướng trung tâm (giả định thành có thể ở gần)
-    #                 self.device.precise_drag(center_x + 100, center_y + 100, center_x, center_y)
-    #                 time.sleep(1.0)
-    #
-    #     print("   [NAV-ERR] Không tìm thấy Thành Chính sau nhiều lần thử! (Có thể đang ở quá xa)")
-    #     return False
-    #
-    # def ensure_target_safe(self, target_x, target_y, debug=True):
-    #     """
-    #     [QUAN TRỌNG] Kiểm tra mục tiêu có nằm trong Vùng An Toàn không.
-    #     Nếu không, thực hiện kéo map để đưa mục tiêu vào vùng an toàn.
-    #     Mục đích: Đảm bảo popup thông tin hiện đủ để game KHÔNG tự cuộn map.
-    #     debug: Nếu True, sẽ lưu ảnh debug để kiểm tra.
-    #     """
-    #     # Cấu hình Vùng An Toàn (Safe Zone)
-    #     # Popup cao khoảng 360px -> Chừa lề trên 420px
-    #     SAFE_TOP = 150
-    #     SAFE_BOTTOM = self.screen_h - 150  # Tránh UI bên dưới
-    #     SAFE_LEFT = 150  # Tránh UI bên trái
-    #     SAFE_RIGHT = self.screen_w - 150  # Tránh UI bên phải
-    #
-    #     drag_x = 0
-    #     drag_y = 0
-    #
-    #     # Tính toán cần kéo bao nhiêu (Drag Vector)
-    #     # Nguyên tắc: Kéo map đi đâu thì mục tiêu sẽ trôi theo đó
-    #
-    #     # Nếu mục tiêu quá cao -> Kéo map xuống (drag_y > 0)
-    #     if target_y < SAFE_TOP:
-    #         drag_y = SAFE_TOP - target_y
-    #     # Nếu mục tiêu quá thấp -> Kéo map lên (drag_y < 0)
-    #     elif target_y > SAFE_BOTTOM:
-    #         drag_y = SAFE_BOTTOM - target_y
-    #
-    #     # Nếu mục tiêu quá trái -> Kéo map sang phải (drag_x > 0)
-    #     if target_x < SAFE_LEFT:
-    #         drag_x = SAFE_LEFT - target_x
-    #     # Nếu mục tiêu quá phải -> Kéo map sang trái (drag_x < 0)
-    #     elif target_x > SAFE_RIGHT:
-    #         drag_x = SAFE_RIGHT - target_x
-    #
-    #     # [DEBUG] Vẽ ảnh debug nếu được yêu cầu
-    #     if debug:
-    #         screen = self.device.take_screenshot()
-    #         debug_img = screen.copy()
-    #
-    #         # Vẽ Safe Zone (hình chữ nhật xanh dương)
-    #         cv2.rectangle(debug_img, (SAFE_LEFT, SAFE_TOP), (SAFE_RIGHT, SAFE_BOTTOM), (255, 200, 0), 2)
-    #         cv2.putText(debug_img, "SAFE ZONE", (SAFE_LEFT + 10, SAFE_TOP + 30),
-    #                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 200, 0), 2)
-    #
-    #         # Vẽ tâm màn hình
-    #         cx, cy = self.screen_w // 2, self.screen_h // 2
-    #         cv2.circle(debug_img, (cx, cy), 8, (255, 255, 255), -1)
-    #         cv2.putText(debug_img, "CENTER", (cx + 10, cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-    #
-    #         # Vẽ vị trí mục tiêu ban đầu (chấm đỏ)
-    #         cv2.circle(debug_img, (int(target_x), int(target_y)), 12, (0, 0, 255), -1)
-    #         cv2.putText(debug_img, f"TARGET ({target_x}, {target_y})", (int(target_x) + 15, int(target_y) - 10),
-    #                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-    #
-    #         # Tính vị trí mục tiêu mới
-    #         new_x = int(target_x + drag_x)
-    #         new_y = int(target_y + drag_y)
-    #
-    #         # Nếu có drag thì vẽ thêm
-    #         if drag_x != 0 or drag_y != 0:
-    #             # Vẽ vị trí mục tiêu mới (chấm xanh lá)
-    #             cv2.circle(debug_img, (new_x, new_y), 12, (0, 255, 0), -1)
-    #             cv2.putText(debug_img, f"NEW ({new_x}, {new_y})", (new_x + 15, new_y + 20),
-    #                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-    #
-    #             # Vẽ đường nối từ target cũ sang target mới (mũi tên cam)
-    #             cv2.arrowedLine(debug_img, (int(target_x), int(target_y)), (new_x, new_y),
-    #                             (0, 165, 255), 3, tipLength=0.2)
-    #
-    #             # Vẽ vector drag từ tâm (mũi tên tím)
-    #             end_drag_x = cx + drag_x
-    #             end_drag_y = cy + drag_y
-    #             cv2.arrowedLine(debug_img, (cx, cy), (int(end_drag_x), int(end_drag_y)),
-    #                             (255, 0, 255), 2, tipLength=0.15)
-    #             cv2.putText(debug_img, f"DRAG ({drag_x}, {drag_y})", (cx + 10, cy + 30),
-    #                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
-    #
-    #             status_text = "UNSAFE - NEED DRAG"
-    #             status_color = (0, 0, 255)
-    #         else:
-    #             status_text = "SAFE - NO DRAG NEEDED"
-    #             status_color = (0, 255, 0)
-    #
-    #         # Vẽ status
-    #         cv2.putText(debug_img, status_text, (10, self.screen_h - 20),
-    #                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, status_color, 2)
-    #
-    #         # Vẽ legend
-    #         legend_y = 30
-    #         cv2.putText(debug_img, "LEGEND:", (10, legend_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-    #                     (255, 255, 255), 2)
-    #         cv2.putText(debug_img, "- Cyan rect: Safe Zone", (10, legend_y + 25), cv2.FONT_HERSHEY_SIMPLEX,
-    #                     0.5, (255, 200, 0), 1)
-    #         cv2.putText(debug_img, "- Red dot: Original target", (10, legend_y + 50), cv2.FONT_HERSHEY_SIMPLEX,
-    #                     0.5, (0, 0, 255), 1)
-    #         cv2.putText(debug_img, "- Green dot: New target", (10, legend_y + 75), cv2.FONT_HERSHEY_SIMPLEX,
-    #                     0.5, (0, 255, 0), 1)
-    #         cv2.putText(debug_img, "- Orange arrow: Target move", (10, legend_y + 100), cv2.FONT_HERSHEY_SIMPLEX,
-    #                     0.5, (0, 165, 255), 1)
-    #         cv2.putText(debug_img, "- Purple arrow: Drag vector", (10, legend_y + 125), cv2.FONT_HERSHEY_SIMPLEX,
-    #                     0.5, (255, 0, 255), 1)
-    #
-    #         # Lưu ảnh debug
-    #         debug_path = os.path.join(os.getcwd(), "debug_img", "debug_safe_zone.png")
-    #         cv2.imwrite(debug_path, debug_img)
-    #         print(f"   [DEBUG] Đã lưu ảnh debug Safe Zone: {debug_path}")
-    #
-    #     # Thực hiện Drag nếu cần
-    #     if drag_x != 0 or drag_y != 0:
-    #         print(f"   [SAFE-GUARD] Mục tiêu ({target_x}, {target_y}) gần rìa. Drag map: ({drag_x}, {drag_y})")
-    #
-    #         # Thực hiện Swipe từ giữa màn hình
-    #         start_sw_x, start_sw_y = self.screen_w // 2, self.screen_h // 2
-    #         end_sw_x = start_sw_x + drag_x
-    #         end_sw_y = start_sw_y + drag_y
-    #
-    #         # Dùng precise_drag (kéo chậm) để tránh quán tính
-    #         self.device.precise_drag(start_sw_x, start_sw_y, end_sw_x, end_sw_y)
-    #
-    #         # Cập nhật bộ nhớ đường đi (Dead Reckoning)
-    #         self.camera_offset[0] += drag_x
-    #         self.camera_offset[1] += drag_y
-    #
-    #         # Tính toán tọa độ MỚI của mục tiêu trên màn hình sau khi kéo
-    #         new_x = int(target_x + drag_x)
-    #         new_y = int(target_y + drag_y)
-    #         return new_x, new_y
-    #
-    #     # Nếu đã an toàn thì trả về tọa độ cũ
-    #     return target_x, target_y
-    #
-    # def return_to_base(self):
-    #     """
-    #     Sử dụng trí nhớ (camera_offset) để cuộn ngược về nhà.
-    #     """
-    #     print(f"   [RETREAT] Đang quay về thành. Offset cần bù: {self.camera_offset}")
-    #
-    #     # Lặp lại cho đến khi về gần gốc (sai số < 50px)
-    #     while abs(self.camera_offset[0]) > 50 or abs(self.camera_offset[1]) > 50:
-    #         # Vector quay về là NGƯỢC LẠI với offset (-offset)
-    #         back_x = -self.camera_offset[0]
-    #         back_y = -self.camera_offset[1]
-    #
-    #         # Cắt ngắn mỗi bước đi tối đa 300px để game load kịp
-    #         step_x = int(np.clip(back_x, -400, 400))
-    #         step_y = int(np.clip(back_y, -400, 400))
-    #
-    #         # Swipe
-    #         cx, cy = self.screen_w // 2, self.screen_h // 2
-    #         self.device.precise_drag(cx, cy, cx + step_x, cy + step_y)
-    #
-    #         # Trừ dần offset
-    #         self.camera_offset[0] += step_x
-    #         self.camera_offset[1] += step_y
-    #
-    #     print("   [RETREAT] Đã về khu vực thành. Căn chỉnh tinh lần cuối...")
-    #     self.reset_camera_to_city()
-
-    # ==========================================================
-    # PHẦN 2: LOGIC TÌM MỤC TIÊU & PHÂN TÍCH
-    # ==========================================================
-
-    # def find_border_targets(self, debug=True):
-    #     """
-    #     Tìm viền xanh -> Lấy contour -> Tính điểm liền kề (4 hướng) thay vì chéo.
-    #     debug: Nếu True, sẽ lưu ảnh debug để kiểm tra.
-    #     """
-    #     screen = self.device.take_screenshot()
-    #     # Lọc màu
-    #     mask = cv2.inRange(screen, self.lower_green, self.upper_green)
-    #
-    #     # Tìm đường viền
-    #     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    #
-    #     # [DEBUG] Tạo bản sao để vẽ debug
-    #     if debug:
-    #         debug_img = screen.copy()
-    #         # Vẽ tất cả contours màu vàng
-    #         cv2.drawContours(debug_img, contours, -1, (0, 255, 255), 2)
-    #
-    #     targets = []
-    #     if contours:
-    #         # Lấy contour lớn nhất
-    #         largest_contour = max(contours, key=cv2.contourArea)
-    #
-    #         # [DEBUG] Vẽ contour lớn nhất màu xanh dương đậm
-    #         if debug:
-    #             cv2.drawContours(debug_img, [largest_contour], -1, (255, 0, 0), 3)
-    #
-    #         # Làm mượt contour
-    #         epsilon = 0.005 * cv2.arcLength(largest_contour, True)
-    #         approx = cv2.approxPolyDP(largest_contour, epsilon, True)
-    #
-    #         # [DEBUG] Vẽ contour đã làm mượt màu tím
-    #         if debug:
-    #             cv2.drawContours(debug_img, [approx], -1, (255, 0, 255), 2)
-    #
-    #         # Lấy tâm màn hình (Thành chính)
-    #         cx, cy = self.screen_w // 2, self.screen_h // 2
-    #
-    #         # [DEBUG] Vẽ tâm màn hình
-    #         if debug:
-    #             cv2.circle(debug_img, (cx, cy), 10, (0, 0, 255), -1)  # Chấm đỏ tâm
-    #             cv2.putText(debug_img, "CENTER", (cx + 15, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-    #
-    #         # Duyệt qua các điểm trên viền
-    #         for i in range(0, len(approx)):  # Step để không quá dày
-    #             pt = approx[i][0]
-    #
-    #             # [DEBUG] Vẽ điểm trên viền gốc màu xanh lá
-    #             if debug:
-    #                 cv2.circle(debug_img, (pt[0], pt[1]), 5, (0, 255, 0), -1)
-    #
-    #             # Tính vector từ Tâm -> Điểm Viền
-    #             vec_x = pt[0] - cx
-    #             vec_y = pt[1] - cy
-    #
-    #             # --- LOGIC MỚI: DOMINANT AXIS ---
-    #             # Offset cần phải đủ lớn để nhảy sang ô bên cạnh (khoảng 1/2 đến 1 ô)
-    #             # Bạn cần chỉnh số này cho khớp kích thước ô đất
-    #             offset = 30
-    #
-    #             target_x = pt[0]
-    #             target_y = pt[1]
-    #
-    #             # Kiểm tra trục nào lớn hơn thì đi theo trục đó
-    #             if abs(vec_x) > abs(vec_y):
-    #                 # Ưu tiên trục Ngang (Left/Right)
-    #                 if vec_x > 0:
-    #                     target_x += offset  # Đi sang Phải
-    #                 else:
-    #                     target_x -= offset  # Đi sang Trái
-    #                 target_y += random.Random(i).randint(-15, 15)  # Thêm nhiễu ngẫu nhiên trên trục phụ
-    #             else:
-    #                 # Ưu tiên trục Dọc (Up/Down)
-    #                 if vec_y > 0:
-    #                     target_y += offset  # Đi xuống Dưới
-    #                 else:
-    #                     target_y -= offset  # Đi lên Trên
-    #                 target_x += random.Random(i).randint(-15, 15)  # Thêm nhiễu ngẫu nhiên trên trục phụ
-    #
-    #             # Làm tròn thành số nguyên
-    #             target_x = int(target_x)
-    #             target_y = int(target_y)
-    #
-    #             # Chỉ lấy điểm nằm trong màn hình
-    #             margin = 30
-    #             if margin < target_x < self.screen_w - margin and margin < target_y < self.screen_h - margin:
-    #                 targets.append((target_x, target_y))
-    #
-    #                 # [DEBUG] Vẽ điểm target màu cam và đường nối
-    #                 if debug:
-    #                     cv2.circle(debug_img, (target_x, target_y), 7, (0, 165, 255), -1)  # Cam
-    #                     cv2.line(debug_img, (pt[0], pt[1]), (target_x, target_y), (0, 165, 255), 1)
-    #
-    #     # Sắp xếp: Ưu tiên điểm gần tâm nhất
-    #     targets.sort(key=lambda p: math.hypot(p[0] - self.screen_w // 2, p[1] - self.screen_h // 2))
-    #
-    #     # Lọc bớt các điểm trùng nhau hoặc quá gần nhau (để tránh click lại cùng 1 ô)
-    #     unique_targets = []
-    #     for idx, t in enumerate(targets):
-    #         # Nếu điểm t cách tất cả điểm đã chọn > 40px thì mới lấy
-    #         if all(math.hypot(t[0] - u[0], t[1] - u[1]) > 40 for u in unique_targets):
-    #             unique_targets.append(t)
-    #
-    #     # [DEBUG] Vẽ các điểm unique_targets cuối cùng với số thứ tự
-    #     if debug:
-    #         for idx, t in enumerate(unique_targets):
-    #             # Vẽ vòng tròn đỏ lớn hơn
-    #             cv2.circle(debug_img, t, 12, (0, 0, 255), 2)
-    #             # Đánh số thứ tự
-    #             cv2.putText(debug_img, str(idx + 1), (t[0] + 15, t[1] + 5),
-    #                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-    #
-    #         # Vẽ legend (chú thích)
-    #         legend_y = 30
-    #         cv2.putText(debug_img, "LEGEND:", (10, legend_y), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-    #                     (255, 255, 255), 2)
-    #         cv2.putText(debug_img, "- Yellow: All contours", (10, legend_y + 25), cv2.FONT_HERSHEY_SIMPLEX,
-    #                     0.5, (0, 255, 255), 1)
-    #         cv2.putText(debug_img, "- Blue: Largest contour", (10, legend_y + 50), cv2.FONT_HERSHEY_SIMPLEX,
-    #                     0.5, (255, 0, 0), 1)
-    #         cv2.putText(debug_img, "- Purple: Smoothed contour", (10, legend_y + 75), cv2.FONT_HERSHEY_SIMPLEX,
-    #                     0.5, (255, 0, 255), 1)
-    #         cv2.putText(debug_img, "- Green: Border points", (10, legend_y + 100), cv2.FONT_HERSHEY_SIMPLEX,
-    #                     0.5, (0, 255, 0), 1)
-    #         cv2.putText(debug_img, "- Orange: Target offset", (10, legend_y + 125), cv2.FONT_HERSHEY_SIMPLEX,
-    #                     0.5, (0, 165, 255), 1)
-    #         cv2.putText(debug_img, "- Red circle: Final targets", (10, legend_y + 150), cv2.FONT_HERSHEY_SIMPLEX,
-    #                     0.5, (0, 0, 255), 1)
-    #
-    #         # Lưu ảnh debug
-    #         debug_path = os.path.join(os.getcwd(), "debug_img", "debug_border_targets.png")
-    #         cv2.imwrite(debug_path, debug_img)
-    #         print(f"   [DEBUG] Đã lưu ảnh debug viền: {debug_path}")
-    #
-    #         # Lưu thêm mask để kiểm tra lọc màu
-    #         mask_path = os.path.join(os.getcwd(), "debug_img", "debug_border_mask.png")
-    #         cv2.imwrite(mask_path, mask)
-    #         print(f"   [DEBUG] Đã lưu mask lọc màu: {mask_path}")
-    #
-    #     return unique_targets
-
-    # ==========================================================
-    # LOGIC ĐIỀU HƯỚNG THEO TỌA ĐỘ (ABSOLUTE NAVIGATION)
-    # ==========================================================
 
     def jump_to_coordinate(self, x, y):
         """Mở map, nhập tọa độ X, Y và bấm Xem để dịch chuyển"""
@@ -522,7 +175,10 @@ class CombatManager:
             if btn_vao:
                 state = "RESOURCE"
                 # Nếu là RESOURCE, OCR đọc độ khó
-                if self.analyze_difficulty(screen, btn_chiem, debug=False):
+                diff_info = self.analyze_difficulty(screen, btn_chiem, debug=False)
+                difficulty = diff_info["label"] or diff_info["raw_text"]
+
+                if diff_info["attackable"]:
                     print("   => Đất tài nguyên hợp lệ. Đánh được!")
                 else:
                     state = "OBSTACLE"  # Coi như chướng ngại vật để lần sau không check lại
@@ -610,7 +266,14 @@ class CombatManager:
             print(f"   [OCR-ERR] Lỗi OCR: {e}")
             full_text = ""
 
-        print(f"   [OCR-DIG] Đọc được: {full_text}")
+        parsed = self.map.parse_difficulty(full_text)
+        normalized_text = parsed["normalized"]
+        is_blacklisted = self._is_blacklisted_difficulty(normalized_text)
+
+        if parsed["valid"]:
+            print(f"   [OCR-DIG] Đọc được: {full_text} | Chuẩn hóa: {parsed['label']}")
+        else:
+            print(f"   [OCR-DIG] Đọc được: {full_text} | Không parse được độ khó")
 
         # [DEBUG] Vẽ debug cho OCR
         if debug:
@@ -632,15 +295,18 @@ class CombatManager:
 
             # Hiển thị nội dung OCR đọc được (ở góc dưới màn hình)
             if full_text:
-                # Kiểm tra blacklist để đổi màu
-                is_blacklisted = any(bad.lower() in full_text.lower() for bad in self.blacklist_difficulty)
                 text_color = (0, 0, 255) if is_blacklisted else (0, 255, 0)
                 status = "BLACKLISTED - SKIP" if is_blacklisted else "OK - ATTACK"
 
                 cv2.putText(debug_img, f"OCR Result: {full_text}", (10, self.screen_h - 60),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, text_color, 2)
+                cv2.putText(debug_img, f"Normalized: {normalized_text}", (10, self.screen_h - 35),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 2)
+                parsed_text = parsed["label"] if parsed["valid"] else "(unknown)"
                 cv2.putText(debug_img, f"Status: {status}", (10, self.screen_h - 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, text_color, 2)
+                cv2.putText(debug_img, f"Parsed: {parsed_text}", (10, self.screen_h - 5),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, text_color, 2)
             else:
                 cv2.putText(debug_img, "OCR Result: (empty - no text detected)", (10, self.screen_h - 60),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
@@ -668,17 +334,39 @@ class CombatManager:
             cv2.imwrite(crop_path, crop)
             print(f"   [DEBUG] Đã lưu ảnh crop gốc: {crop_path}")
 
-        # Nếu không có text thì bỏ qua
-        if not full_text:
-            return False
+        # Nếu không có text hoặc không parse được thì bỏ qua để tránh đánh nhầm.
+        if not full_text or not parsed["valid"]:
+            return {
+                "attackable": False,
+                "raw_text": full_text,
+                "normalized_text": normalized_text,
+                "label": parsed["label"],
+                "tier_key": parsed["tier_key"],
+                "level": parsed["level"],
+                "rank": parsed["rank"],
+            }
 
-        # Check Blacklist
-        for bad in self.blacklist_difficulty:
-            if bad.lower() in full_text.lower():
-                print(f"   [SKIP] Gặp độ khó trong blacklist: {bad}")
-                return False
+        if is_blacklisted:
+            print(f"   [SKIP] Gặp độ khó trong blacklist: {parsed['label']}")
+            return {
+                "attackable": False,
+                "raw_text": full_text,
+                "normalized_text": normalized_text,
+                "label": parsed["label"],
+                "tier_key": parsed["tier_key"],
+                "level": parsed["level"],
+                "rank": parsed["rank"],
+            }
 
-        return True
+        return {
+            "attackable": True,
+            "raw_text": full_text,
+            "normalized_text": normalized_text,
+            "label": parsed["label"],
+            "tier_key": parsed["tier_key"],
+            "level": parsed["level"],
+            "rank": parsed["rank"],
+        }
 
     def dispatch_troops(self, btn_chiem_pos, debug=True):
         """Quy trình xuất quân"""
@@ -788,8 +476,71 @@ class CombatManager:
     # PHẦN 3: LOGIC CHÍNH (MAIN COMBAT LOOP)
     # ==========================================================
 
+    def _close_tile_popup(self):
+        """Đóng popup ô đất sau khi trinh sát để tiếp tục quét target khác."""
+        self.device.tap(self.screen_w // 2, self.screen_h // 2)
+        time.sleep(0.3)
+
+    def _collect_attackable_targets(self, targets, max_scan=10):
+        """
+        Ưu tiên dùng dữ liệu đã có trong map; chỉ OCR lại các ô chưa có profile độ khó.
+        Trả về danh sách candidate có thể đánh, đã sắp theo rank tăng dần.
+        """
+        candidates = []
+        need_ocr = []
+        cache_hits = 0
+
+        for target_x, target_y in targets:
+            tile = self.map.get_tile_info(target_x, target_y)
+            state = tile.get("state", "")
+
+            # Tile đã có trong map và còn là RESOURCE => dùng cache, không OCR lại.
+            if state == "RESOURCE":
+                parsed = self.map.parse_difficulty(tile.get("difficulty", ""))
+                diff_label = parsed["label"] if parsed["valid"] else tile.get("difficulty", "") or "UNKNOWN"
+                candidates.append(
+                    {
+                        "x": target_x,
+                        "y": target_y,
+                        "rank": parsed["rank"] if parsed["valid"] else 999999,
+                        "label": diff_label,
+                    }
+                )
+                cache_hits += 1
+            else:
+                need_ocr.append((target_x, target_y))
+
+        scanned = 0
+        for target_x, target_y in need_ocr:
+            if scanned >= max_scan:
+                break
+
+            self.jump_to_coordinate(target_x, target_y)
+            btn_chiem_pos = self.analyze_tile_state(target_x, target_y, debug=False)
+            scanned += 1
+
+            if btn_chiem_pos:
+                tile = self.map.get_tile_info(target_x, target_y)
+                parsed = self.map.parse_difficulty(tile.get("difficulty", ""))
+                diff_label = parsed["label"] if parsed["valid"] else tile.get("difficulty", "") or "UNKNOWN"
+                candidates.append(
+                    {
+                        "x": target_x,
+                        "y": target_y,
+                        "rank": parsed["rank"] if parsed["valid"] else 999999,
+                        "label": diff_label,
+                    }
+                )
+                # analyze_tile_state trả về sớm khi attackable nên popup vẫn còn mở.
+                self._close_tile_popup()
+
+        print(f"   [COMBAT] Reuse map cache: {cache_hits} ô | OCR mới: {scanned} ô")
+
+        candidates.sort(key=lambda c: (c["rank"], c["x"], c["y"]))
+        return candidates
+
     def scan_and_dig(self):
-        """Luồng xử lý Dig mới dựa trên Bản đồ số"""
+        """Luồng Dig 2 pha: trinh sát OCR độ khó nhiều ô trước, rồi mới đánh ô dễ nhất."""
 
         # 1. Lấy danh sách ô mục tiêu từ thuật toán vết dầu loang
         targets = self.map.get_expansion_targets()
@@ -799,9 +550,29 @@ class CombatManager:
             return False
 
         print(f"   [COMBAT] Tìm thấy {len(targets)} ô liền kề có thể mở rộng.")
+        preview = []
+        for tx, ty in targets[:8]:
+            tile = self.map.get_tile_info(tx, ty)
+            parsed = self.map.parse_difficulty(tile.get("difficulty", ""))
+            diff_label = parsed["label"] if parsed["valid"] else tile.get("difficulty", "?") or "UNKNOWN"
+            preview.append(f"({tx},{ty})={diff_label}")
+        if preview:
+            print("   [COMBAT] Ưu tiên target: " + " | ".join(preview))
 
-        # 2. Duyệt từng mục tiêu
-        for target_x, target_y in targets:
+        # 2. Pha trinh sát: OCR nhiều target để biết độ khó thực trước khi chọn.
+        scan_budget = min(len(targets), 10)
+        candidates = self._collect_attackable_targets(targets, max_scan=scan_budget)
+
+        if not candidates:
+            print("   [COMBAT] Không có target hợp lệ sau khi trinh sát.")
+            return False
+
+        top_preview = [f"({c['x']},{c['y']})={c['label']}" for c in candidates[:8]]
+        print("   [COMBAT] Candidate ưu tiên (cache + OCR): " + " | ".join(top_preview))
+
+        # 3. Pha tấn công: duyệt từ dễ đến khó theo rank đã parse.
+        for candidate in candidates:
+            target_x, target_y = candidate["x"], candidate["y"]
             max_retries = 2
             for attempt in range(max_retries):
 

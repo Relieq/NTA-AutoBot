@@ -73,6 +73,126 @@
             "state": "OWNED",
             "difficulty": "",
             "last_updated": 1774124964
+        },
+        "486,136": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774130230
+        },
+        "486,137": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774130414
+        },
+        "486,138": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774130263
+        },
+        "487,135": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774130280
+        },
+        "487,139": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774131451
+        },
+        "488,134": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774160436
+        },
+        "488,140": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774157706
+        },
+        "489,135": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774130346
+        },
+        "489,140": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774159511
+        },
+        "490,136": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774159995
+        },
+        "485,137": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774131367
+        },
+        "490,139": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774158147
+        },
+        "491,137": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774158606
+        },
+        "491,138": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774159071
+        },
+        "486,139": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774153305
+        },
+        "487,140": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 4",
+            "last_updated": 1774157671
+        },
+        "488,141": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 4",
+            "last_updated": 1774158112
+        },
+        "490,140": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 4",
+            "last_updated": 1774158554
+        },
+        "491,139": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774158571
+        },
+        "491,136": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 4",
+            "last_updated": 1774159016
+        },
+        "492,137": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 4",
+            "last_updated": 1774159033
+        },
+        "492,138": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 4",
+            "last_updated": 1774159476
+        },
+        "489,141": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 1",
+            "last_updated": 1774159958
+        },
+        "490,135": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 4",
+            "last_updated": 1774160401
         }
     }
 }

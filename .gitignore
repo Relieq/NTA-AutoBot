@@ -5,6 +5,8 @@ modules/__pycache__/
 config/__pycache__/
 __pychache__/
 
+.env
+
 terminal_log.txt
 
 test_connection.py

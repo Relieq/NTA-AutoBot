@@ -17,7 +17,7 @@
       "threshold": 0.6
     },
     "icon_cua_tiem.png": {
-      "threshold": 0.55
+      "threshold": 0.75
     },
     "btn_3_vang.png": {
       "threshold": 0.65
@@ -35,15 +35,15 @@
       "threshold": 0.67
     },
     "btn_ok_xuat_chien.png": {
-      "threshold": 0.5,
+      "threshold": 0.7,
       "weights": {
         "edge": 1.0
       }
     },
     "btn_xay_dung_menu.png": {
-      "threshold": 0.45,
+      "threshold": 0.8,
       "find_all": {
-        "threshold": 0.45,
+        "threshold": 0.8,
         "min_distance": 24
       }
     },

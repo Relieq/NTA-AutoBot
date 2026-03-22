@@ -89,8 +89,13 @@ Ví dụ profile theo từng nút:
 ### Combat tuning
 Trong `modules/combat.py`:
 - `screen_w`, `screen_h` đang giả định `1600x900`
-- `blacklist_difficulty` lọc tên mục tiêu OCR
+- `blacklist_difficulty` lọc tên mục tiêu OCR (so khớp theo text đã chuẩn hóa không dấu)
 - Màu viền xanh map (`lower_green`/`upper_green`) để tìm border target
+
+Trong `core/map_core.py`:
+- Target `RESOURCE` đã có độ khó sẽ được ưu tiên theo thứ tự tăng dần:
+  `Dễ X` -> `Nhập môn X` -> `Thường X` -> `Tăng bậc X` -> `Khó X` -> `Địa ngục X`.
+- `UNKNOWN` hoặc không parse được độ khó sẽ đứng sau nhóm có độ khó parse được.
 
 ### Captcha model + labels
 Trong `modules/captcha.py`:
