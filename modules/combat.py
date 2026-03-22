@@ -1,30 +1,60 @@
-import random
 import time
 import os
+import json
+import re
+from datetime import datetime
 import cv2
-import numpy as np
-import math
 import easyocr
-
-from modules.captcha import CaptchaSolver
+from paddleocr import PaddleOCR
 
 
 class CombatManager:
-    def __init__(self, device, vision, map_manager, captcha_solver=None):
+    def __init__(self, device, vision, map_manager, captcha_solver=None, debug_enabled=None, debug_dir="debug_img/combat"):
         self.device = device
         self.vision = vision
         self.map = map_manager
         self.captcha_solver = captcha_solver  # Nhận instance từ main.py
         self.assets_dir = os.path.join(os.getcwd(), "assets")
+        env_debug = os.getenv("COMBAT_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}
+        self.debug_enabled = env_debug if debug_enabled is None else bool(debug_enabled)
+        self.debug_dir = os.path.abspath(debug_dir)
 
         # Khởi tạo EasyOCR - hỗ trợ tiếng Việt
         # gpu=False để dùng CPU, đổi thành True nếu có GPU NVIDIA
         self.ocr = easyocr.Reader(['vi'], gpu=False, verbose=False)
+        # OCR thời gian hành quân dùng PaddleOCR (ổn định hơn cho chuỗi thời gian ngắn).
+        self.time_ocr = PaddleOCR(use_angle_cls=True, lang='en', enable_mkldnn=False)
 
         # Cấu hình danh sách đen (Blacklist độ khó)
-        # Nếu gặp các từ này trong tên đất thì bỏ qua
-        self.blacklist_difficulty = ["Tăng bậc 2", "Tăng bậc 3", "Địa ngục", "Khó 1", "Khó 2", "Khó 3"]
-        self.blacklist_difficulty_norm = [self.map.normalize_text(item) for item in self.blacklist_difficulty]
+        self.combat_timing = self._load_json_config(
+            os.path.join("config", "combat_timing.json"),
+            {
+                "default_battle_duration_seconds": 150,
+                "max_scout_targets_per_cycle": 10,
+                "battle_duration_seconds": {
+                    "de": 20,
+                    "nhap_mon": 80,
+                    "thuong": 150,
+                    "tang_bac": 240,
+                    "kho": 420,
+                    "dia_nguc": 480,
+                },
+            },
+        )
+        self.difficulty_blacklist = self._load_json_config(
+            os.path.join("config", "combat_difficulty_blacklist.json"),
+            {
+                "enabled": True,
+                "tiers": {
+                    "de": {"default": False, "levels": {}},
+                    "nhap_mon": {"default": False, "levels": {}},
+                    "thuong": {"default": False, "levels": {}},
+                    "tang_bac": {"default": False, "levels": {"2": True, "3": True}},
+                    "kho": {"default": False, "levels": {"1": True, "2": True, "3": True}},
+                    "dia_nguc": {"default": True, "levels": {}},
+                },
+            },
+        )
 
         # [CẤU HÌNH MÀU SẮC]
         # Màu viền xanh lá cây của lãnh thổ (Hệ màu BGR của OpenCV)
@@ -43,6 +73,26 @@ class CombatManager:
 
     def _get_path(self, filename):
         return os.path.join(self.assets_dir, filename)
+
+    def _should_debug(self, debug_override):
+        if debug_override is None:
+            return self.debug_enabled
+        return bool(debug_override)
+
+    def _load_json_config(self, relative_path, default_value):
+        full_path = os.path.join(os.getcwd(), relative_path)
+        if not os.path.exists(full_path):
+            print(f"   [COMBAT] Không thấy '{relative_path}', dùng cấu hình mặc định.")
+            return default_value
+
+        try:
+            with open(full_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return data
+        except Exception as exc:
+            print(f"   [COMBAT-WARN] Lỗi đọc '{relative_path}': {exc}. Dùng mặc định.")
+        return default_value
 
     def _draw_detection_box(self, debug_img, center_pos, template_name, label, color):
         """Vẽ khung khoanh vùng dựa trên kích thước template đã match."""
@@ -66,11 +116,183 @@ class CombatManager:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
         return True
 
-    def _is_blacklisted_difficulty(self, normalized_text):
-        for bad in self.blacklist_difficulty_norm:
-            if bad and bad in normalized_text:
-                return True
-        return False
+    def _is_blacklisted_difficulty(self, tier_key, level):
+        if not self.difficulty_blacklist.get("enabled", True):
+            return False
+
+        tiers = self.difficulty_blacklist.get("tiers", {})
+        tier_cfg = tiers.get(tier_key, {})
+        if not isinstance(tier_cfg, dict):
+            return False
+
+        levels = tier_cfg.get("levels", {}) if isinstance(tier_cfg.get("levels", {}), dict) else {}
+        level_key = str(level)
+        if level_key in levels:
+            return bool(levels[level_key])
+
+        return bool(tier_cfg.get("default", False))
+
+    def _get_battle_duration_seconds(self, tier_key):
+        durations = self.combat_timing.get("battle_duration_seconds", {})
+        if tier_key in durations:
+            return int(durations[tier_key])
+        return int(self.combat_timing.get("default_battle_duration_seconds", 150))
+
+    def _normalize_time_text(self, text):
+        if not text:
+            return ""
+        text = str(text).strip().lower()
+        # Chuẩn hóa OCR dễ nhầm ký tự
+        text = text.replace("o", "0")
+        text = text.replace("l", "1")
+        text = text.replace("i", "1")
+        text = text.replace(" ", "")
+        # Chuẩn hóa các loại dấu ngăn cách về ':' để parse thống nhất.
+        text = re.sub(r"[.,;-]", ":", text)
+        text = re.sub(r":+", ":", text)
+        return text
+
+    def _parse_time_seconds(self, text):
+        normalized = self._normalize_time_text(text)
+        if not normalized:
+            return None
+
+        match_hms = re.search(r"(\d{1,2}):(\d{2}):(\d{2})", normalized)
+        if match_hms:
+            hh = int(match_hms.group(1))
+            mm = int(match_hms.group(2))
+            ss = int(match_hms.group(3))
+            return hh * 3600 + mm * 60 + ss
+
+        match_ms = re.search(r"(\d{1,2}):(\d{2})", normalized)
+        if match_ms:
+            mm = int(match_ms.group(1))
+            ss = int(match_ms.group(2))
+            return mm * 60 + ss
+
+        return None
+
+    def _extract_travel_time_seconds(self, screen_img, checkbox_center, debug_prefix="travel"):
+        """OCR vùng dòng quân tương ứng checkbox, trả về số giây hành quân nếu parse được."""
+        h, w = screen_img.shape[:2]
+        cx, cy = checkbox_center
+
+        x1 = max(0, cx + 30)
+        x2 = min(w, cx + 250)
+        y1 = max(0, cy)
+        y2 = min(h, cy + 100)
+
+        if x2 <= x1 or y2 <= y1:
+            self._save_travel_time_debug(
+                screen_img,
+                checkbox_center,
+                (x1, y1, x2, y2),
+                "",
+                None,
+                debug_prefix,
+                None,
+            )
+            return None
+
+        crop = screen_img[y1:y2, x1:x2]
+        enlarged = cv2.resize(crop, None, fx=3.0, fy=3.0, interpolation=cv2.INTER_CUBIC)
+        gray = cv2.cvtColor(enlarged, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+        processed_img = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
+
+        try:
+            output = self.time_ocr.predict(processed_img)
+            results = list(output)
+            rec_texts = []
+            if results:
+                rec_texts = results[0].get("rec_texts", [])
+            text = " ".join(rec_texts) if rec_texts else ""
+        except Exception as exc:
+            print(f"   [OCR-ERR] Lỗi OCR thời gian hành quân: {exc}")
+            self._save_travel_time_debug(
+                screen_img,
+                checkbox_center,
+                (x1, y1, x2, y2),
+                "",
+                None,
+                debug_prefix,
+                processed_img,
+            )
+            return None
+
+        seconds = self._parse_time_seconds(text)
+        normalized = self._normalize_time_text(text)
+        if seconds is not None:
+            hh = seconds // 3600
+            mm = (seconds % 3600) // 60
+            ss = seconds % 60
+            print(
+                f"   [OCR-TIME] Checkbox ({cx},{cy}) => {hh:02d}:{mm:02d}:{ss:02d} ({seconds}s) "
+                f"| raw='{text}' norm='{normalized}'"
+            )
+            self._save_travel_time_debug(
+                screen_img,
+                checkbox_center,
+                (x1, y1, x2, y2),
+                f"raw={text} | norm={normalized}",
+                seconds,
+                debug_prefix,
+                processed_img,
+            )
+            return seconds
+
+        self._save_travel_time_debug(
+            screen_img,
+            checkbox_center,
+            (x1, y1, x2, y2),
+            f"raw={text} | norm={normalized}",
+            None,
+            debug_prefix,
+            processed_img,
+        )
+        return None
+
+    def _save_travel_time_debug(self, screen_img, checkbox_center, roi, ocr_text, parsed_seconds, debug_prefix, processed_img):
+        """Lưu ảnh debug OCR thời gian: 2 nhóm ảnh (overlay + processed)."""
+        if not self.debug_enabled:
+            return
+
+        debug_dir = self.debug_dir
+        overlay_dir = os.path.join(debug_dir, "time_overlay")
+        processed_dir = os.path.join(debug_dir, "time_processed")
+        os.makedirs(overlay_dir, exist_ok=True)
+        os.makedirs(processed_dir, exist_ok=True)
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        cx, cy = checkbox_center
+        x1, y1, x2, y2 = roi
+
+        full_debug = screen_img.copy()
+        cv2.circle(full_debug, (int(cx), int(cy)), 8, (255, 0, 0), -1)
+        cv2.putText(full_debug, "checkbox", (int(cx) + 10, int(cy) - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+        cv2.rectangle(full_debug, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
+        cv2.putText(full_debug, "OCR_TIME_ROI", (int(x1), max(20, int(y1) - 8)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+
+        parsed_text = f"{parsed_seconds}s" if parsed_seconds is not None else "PARSE_FAIL"
+        cv2.putText(full_debug, f"OCR Text: {ocr_text if ocr_text else '(empty)'}", (10, self.screen_h - 45),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        cv2.putText(full_debug, f"Parsed: {parsed_text}", (10, self.screen_h - 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+
+        full_path = os.path.join(overlay_dir, f"debug_travel_time_{debug_prefix}_{ts}_{int(cx)}_{int(cy)}.png")
+        cv2.imwrite(full_path, full_debug)
+
+        if processed_img is not None and processed_img.size > 0:
+            processed_out = processed_img.copy()
+            cv2.putText(processed_out, f"OCR: {ocr_text if ocr_text else '(empty)'}", (10, 25),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            cv2.putText(processed_out, f"Parsed: {parsed_text}", (10, 55),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            processed_path = os.path.join(processed_dir, f"debug_travel_time_processed_{debug_prefix}_{ts}_{int(cx)}_{int(cy)}.png")
+            cv2.imwrite(processed_path, processed_out)
 
     def safe_wait_and_check(self, wait_time=1.5):
         """
@@ -149,7 +371,7 @@ class CombatManager:
         self.device.tap(btn_xem[0], btn_xem[1])
         time.sleep(2)  # Chờ camera dịch chuyển và đóng map
 
-    def analyze_tile_state(self, x, y, debug=True):
+    def analyze_tile_state(self, x, y, debug=None):
         """
         Bấm vào ô trung tâm màn hình, phân tích các nút hiện ra
         để đánh giá trạng thái ô đất.
@@ -194,7 +416,7 @@ class CombatManager:
             print("   => Chướng ngại vật (Núi, sông, v.v...).")
 
         # [DEBUG] Khoanh vùng các nút đã nhận diện để dễ hiệu chỉnh threshold/template
-        if debug:
+        if self._should_debug(debug):
             debug_img = screen.copy()
             cv2.circle(debug_img, (cx, cy), 8, (255, 255, 255), -1)
             cv2.putText(debug_img, "TAP CENTER", (cx + 12, cy - 10),
@@ -229,7 +451,7 @@ class CombatManager:
     # LOGIC XUẤT QUÂN VÀ OCR CŨ (GIỮ NGUYÊN)
     # ==========================================================
 
-    def analyze_difficulty(self, screen_img, btn_chiem_pos, debug=True):
+    def analyze_difficulty(self, screen_img, btn_chiem_pos, debug=None):
         """
         OCR vùng popup để đọc độ khó sử dụng EasyOCR.
         debug: Nếu True, sẽ lưu ảnh debug để kiểm tra vùng OCR.
@@ -268,7 +490,7 @@ class CombatManager:
 
         parsed = self.map.parse_difficulty(full_text)
         normalized_text = parsed["normalized"]
-        is_blacklisted = self._is_blacklisted_difficulty(normalized_text)
+        is_blacklisted = parsed["valid"] and self._is_blacklisted_difficulty(parsed["tier_key"], parsed["level"])
 
         if parsed["valid"]:
             print(f"   [OCR-DIG] Đọc được: {full_text} | Chuẩn hóa: {parsed['label']}")
@@ -276,7 +498,7 @@ class CombatManager:
             print(f"   [OCR-DIG] Đọc được: {full_text} | Không parse được độ khó")
 
         # [DEBUG] Vẽ debug cho OCR
-        if debug:
+        if self._should_debug(debug):
             debug_img = screen_img.copy()
 
             # Vẽ vị trí nút Chiếm (chấm xanh dương)
@@ -321,7 +543,7 @@ class CombatManager:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
             cv2.putText(debug_img, "- Red rect: OCR region", (10, legend_y + 50),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
-            cv2.putText(debug_img, f"- Blacklist: {self.blacklist_difficulty}", (10, legend_y + 75),
+            cv2.putText(debug_img, "- Blacklist: config/combat_difficulty_blacklist.json", (10, legend_y + 75),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.4, (200, 200, 200), 1)
 
             # Lưu ảnh debug tổng thể
@@ -368,8 +590,8 @@ class CombatManager:
             "rank": parsed["rank"],
         }
 
-    def dispatch_troops(self, btn_chiem_pos, debug=True):
-        """Quy trình xuất quân"""
+    def dispatch_troops(self, btn_chiem_pos, debug=None):
+        """Quy trình xuất quân. Tick hợp lệ khi OCR được thời gian hành quân của dòng quân đó."""
         print("   [ACT] Bấm Chiếm...")
         self.device.tap(btn_chiem_pos[0], btn_chiem_pos[1])
         time.sleep(4)
@@ -381,12 +603,13 @@ class CombatManager:
             print("   [ERR] Vẫn thấy nút Chiếm sau khi bấm! Có thể bị click trượt hoặc popup chưa hiện đủ. "
                   "Bỏ qua điểm này.")
             self.device.tap(2, 2)
-            return False
+            return {"status": "FAILED", "max_travel_time": 0, "selected_count": 0}
 
         # Click tối đa 5 đạo (có swipe để cuộn danh sách nếu cần)
         count = 0
         max_troops = 5
         max_swipe_rounds = 3  # Giới hạn số lần swipe để tránh loop vô hạn
+        selected_travel_times = []
 
         for swipe_round in range(max_swipe_rounds):
             if count >= max_troops:
@@ -403,7 +626,7 @@ class CombatManager:
             print(f"   [ACT] Vòng {swipe_round + 1}: Tìm thấy {len(unchecked)} checkbox.")
 
             # [DEBUG] Vẽ debug cho checkbox (mỗi vòng swipe)
-            if debug:
+            if self._should_debug(debug):
                 debug_img = current_screen.copy()
                 remaining = max_troops - count  # Số checkbox còn có thể click
                 for idx, pt in enumerate(unchecked):
@@ -431,9 +654,17 @@ class CombatManager:
             for pt in unchecked:
                 if count >= max_troops:
                     break
+
+                # Theo rule mới: chỉ tính tick thành công khi OCR được thời gian hành quân.
+                travel_seconds = self._extract_travel_time_seconds(current_screen, pt, debug_prefix="dispatch")
+                if travel_seconds is None:
+                    print(f"   [ACT] Bỏ qua checkbox ({pt[0]},{pt[1]}) vì không OCR được TG hành quân.")
+                    continue
+
                 self.device.tap(pt[0], pt[1])
                 time.sleep(0.2)
                 count += 1
+                selected_travel_times.append(travel_seconds)
 
             # Nếu chưa đủ 5 quân, swipe để cuộn danh sách xuống
             if count < max_troops:
@@ -447,6 +678,13 @@ class CombatManager:
                 time.sleep(1.0)
 
         print(f"   [ACT] Đã tick tổng cộng {count} checkbox.")
+        if not selected_travel_times:
+            print("   [ERR] Không có checkbox hợp lệ (OCR thời gian hành quân thất bại toàn bộ).")
+            self.device.tap(2, 2)
+            return {"status": "FAILED", "max_travel_time": 0, "selected_count": 0}
+
+        max_travel_time = max(selected_travel_times)
+        print(f"   [ACT] TG hành quân lớn nhất của đội đã tick: {max_travel_time}s")
         time.sleep(2)
 
         # Bấm OK Xuất Chiến (chụp màn hình mới sau khi tick)
@@ -460,17 +698,17 @@ class CombatManager:
 
             if status == "INTERRUPTED":
                 print("   [ACT] Bị ngắt bởi Captcha. Yêu cầu thử lại lệnh xuất chiến.")
-                return "INTERRUPTED"  # Trả về tín hiệu ngắt
+                return {"status": "INTERRUPTED", "max_travel_time": max_travel_time, "selected_count": count}
             elif status == "FATAL":
-                return "FATAL"
+                return {"status": "FATAL", "max_travel_time": max_travel_time, "selected_count": count}
 
             print("   [ACT] Đã xuất quân thành công!")
-            return True
+            return {"status": "SUCCESS", "max_travel_time": max_travel_time, "selected_count": count}
 
         print("   [ERR] Không tìm thấy nút OK sau khi tick quân! Có thể bị click trượt hoặc popup chưa hiện đủ. "
               "Bỏ qua điểm này.")
 
-        return False
+        return {"status": "FAILED", "max_travel_time": max_travel_time, "selected_count": count}
 
     # ==========================================================
     # PHẦN 3: LOGIC CHÍNH (MAIN COMBAT LOOP)
@@ -497,12 +735,15 @@ class CombatManager:
             # Tile đã có trong map và còn là RESOURCE => dùng cache, không OCR lại.
             if state == "RESOURCE":
                 parsed = self.map.parse_difficulty(tile.get("difficulty", ""))
+                if parsed["valid"] and self._is_blacklisted_difficulty(parsed["tier_key"], parsed["level"]):
+                    continue
                 diff_label = parsed["label"] if parsed["valid"] else tile.get("difficulty", "") or "UNKNOWN"
                 candidates.append(
                     {
                         "x": target_x,
                         "y": target_y,
                         "rank": parsed["rank"] if parsed["valid"] else 999999,
+                        "tier_key": parsed["tier_key"] if parsed["valid"] else "",
                         "label": diff_label,
                     }
                 )
@@ -522,12 +763,16 @@ class CombatManager:
             if btn_chiem_pos:
                 tile = self.map.get_tile_info(target_x, target_y)
                 parsed = self.map.parse_difficulty(tile.get("difficulty", ""))
+                if parsed["valid"] and self._is_blacklisted_difficulty(parsed["tier_key"], parsed["level"]):
+                    self._close_tile_popup()
+                    continue
                 diff_label = parsed["label"] if parsed["valid"] else tile.get("difficulty", "") or "UNKNOWN"
                 candidates.append(
                     {
                         "x": target_x,
                         "y": target_y,
                         "rank": parsed["rank"] if parsed["valid"] else 999999,
+                        "tier_key": parsed["tier_key"] if parsed["valid"] else "",
                         "label": diff_label,
                     }
                 )
@@ -540,14 +785,14 @@ class CombatManager:
         return candidates
 
     def scan_and_dig(self):
-        """Luồng Dig 2 pha: trinh sát OCR độ khó nhiều ô trước, rồi mới đánh ô dễ nhất."""
+        """Luồng Dig 2 pha: trinh sát -> chọn target -> xuất quân và trả về thời gian chờ dự đoán."""
 
         # 1. Lấy danh sách ô mục tiêu từ thuật toán vết dầu loang
         targets = self.map.get_expansion_targets()
 
         if not targets:
             print("   [COMBAT] Lãnh thổ đang bị bao vây hoặc chưa có dữ liệu. Không tìm thấy ô để mở rộng.")
-            return False
+            return {"status": "NO_TARGET"}
 
         print(f"   [COMBAT] Tìm thấy {len(targets)} ô liền kề có thể mở rộng.")
         preview = []
@@ -560,12 +805,12 @@ class CombatManager:
             print("   [COMBAT] Ưu tiên target: " + " | ".join(preview))
 
         # 2. Pha trinh sát: OCR nhiều target để biết độ khó thực trước khi chọn.
-        scan_budget = min(len(targets), 10)
+        scan_budget = min(len(targets), int(self.combat_timing.get("max_scout_targets_per_cycle", 10)))
         candidates = self._collect_attackable_targets(targets, max_scan=scan_budget)
 
         if not candidates:
             print("   [COMBAT] Không có target hợp lệ sau khi trinh sát.")
-            return False
+            return {"status": "NO_TARGET"}
 
         top_preview = [f"({c['x']},{c['y']})={c['label']}" for c in candidates[:8]]
         print("   [COMBAT] Candidate ưu tiên (cache + OCR): " + " | ".join(top_preview))
@@ -584,16 +829,36 @@ class CombatManager:
 
                 if btn_chiem_pos:
                     dispatch_status = self.dispatch_troops(btn_chiem_pos)
+                    dispatch_result = dispatch_status if isinstance(dispatch_status, dict) else {
+                        "status": "SUCCESS" if dispatch_status is True else str(dispatch_status),
+                        "max_travel_time": 0,
+                        "selected_count": 0,
+                    }
+                    dispatch_key = dispatch_result.get("status", "FAILED")
 
-                    if dispatch_status == True:
+                    if dispatch_key == "SUCCESS":
                         # Đã xuất quân, cập nhật ô này thành OWNED trong map ảo
                         self.map.update_tile(target_x, target_y, "OWNED")
-                        return True
-                    elif dispatch_status == "INTERRUPTED":
+                        battle_seconds = self._get_battle_duration_seconds(candidate.get("tier_key", ""))
+                        predicted_wait = int(dispatch_result.get("max_travel_time", 0)) + battle_seconds
+                        print(
+                            f"   [COMBAT] Dự đoán chờ trận: {dispatch_result.get('max_travel_time', 0)}s hành quân + "
+                            f"{battle_seconds}s chiến đấu = {predicted_wait}s"
+                        )
+                        return {
+                            "status": "SUCCESS",
+                            "target": (target_x, target_y),
+                            "difficulty": candidate.get("label", ""),
+                            "tier_key": candidate.get("tier_key", ""),
+                            "max_travel_time": int(dispatch_result.get("max_travel_time", 0)),
+                            "battle_duration": battle_seconds,
+                            "predicted_wait": predicted_wait,
+                        }
+                    elif dispatch_key == "INTERRUPTED":
                         print("   [COMBAT] Bị ngắt do Captcha. Thử lại ô đất này...")
                         continue
-                    elif dispatch_status == "FATAL":
-                        return False
+                    elif dispatch_key == "FATAL":
+                        return {"status": "FATAL"}
                     else:
                         # Lỗi kẹt UI, tap đóng popup
                         self.device.tap(self.screen_w // 2, self.screen_h // 2)
@@ -602,9 +867,9 @@ class CombatManager:
                     # Không đánh được (là núi, sông, người khác...) -> Đã phân tích xong
                     break
 
-        return False
+        return {"status": "NO_TARGET"}
 
-    def retreat_troops_logic(self, debug=True):
+    def retreat_troops_logic(self, debug=None):
         """
         Quy trình rút quân về thành.
         debug: Nếu True, sẽ lưu ảnh debug để kiểm tra.
@@ -623,7 +888,7 @@ class CombatManager:
         self.jump_to_coordinate(city_x, city_y)
         cx, cy = self.screen_w // 2 + 1, self.screen_h // 2 + 1
         # DEBUG: Vẽ điểm tap vào thành chính
-        if debug:
+        if self._should_debug(debug):
             screen = self.device.take_screenshot()
             debug_img = screen.copy()
             cv2.circle(debug_img, (cx, cy), 10, (255, 0, 0), -1)
@@ -646,6 +911,7 @@ class CombatManager:
             count = 0
             max_troops = 5
             max_swipe_rounds = 3  # Giới hạn số lần swipe để tránh loop vô hạn
+            selected_travel_times = []
 
             for swipe_round in range(max_swipe_rounds):
                 if count >= max_troops:
@@ -662,7 +928,7 @@ class CombatManager:
                 print(f"   [ACT] Vòng {swipe_round + 1}: Tìm thấy {len(unchecked)} checkbox (rút quân).")
 
                 # [DEBUG] Vẽ debug cho checkbox rút quân (mỗi vòng swipe)
-                if debug:
+                if self._should_debug(debug):
                     debug_img = current_screen.copy()
                     remaining = max_troops - count  # Số checkbox còn có thể click
                     for idx, pt in enumerate(unchecked):
@@ -690,9 +956,17 @@ class CombatManager:
                 for pt in unchecked:
                     if count >= max_troops:
                         break
+
+                    # Rule mới: chỉ tick thành công khi OCR được TG hành quân của dòng quân đó.
+                    travel_seconds = self._extract_travel_time_seconds(current_screen, pt, debug_prefix="retreat")
+                    if travel_seconds is None:
+                        print(f"   [ACT] Bỏ qua checkbox rút quân ({pt[0]},{pt[1]}) vì OCR TG hành quân thất bại.")
+                        continue
+
                     self.device.tap(pt[0], pt[1])
                     time.sleep(0.2)
                     count += 1
+                    selected_travel_times.append(travel_seconds)
 
                 # Nếu chưa đủ 5 quân, swipe để cuộn danh sách xuống
                 if count < max_troops:
@@ -705,6 +979,13 @@ class CombatManager:
                     time.sleep(1.0)
 
             print(f"   [ACT] Đã tick tổng cộng {count} checkbox (rút quân).")
+            if not selected_travel_times:
+                print("   [ERR] Không có checkbox rút quân hợp lệ (OCR thời gian thất bại toàn bộ).")
+                self.device.tap(2, 2)
+                return {"status": "FAILED", "max_travel_time": 0, "selected_count": 0}
+
+            max_travel_time = max(selected_travel_times)
+            print(f"   [RETREAT] TG hành quân lớn nhất khi rút quân: {max_travel_time}s")
             time.sleep(2)
 
             # 5. OK (chụp màn hình mới sau khi tick)
@@ -718,9 +999,9 @@ class CombatManager:
 
                 if status == "INTERRUPTED":
                     print("   [ACT] Bị ngắt bởi Captcha. Yêu cầu thử lại lệnh xuất chiến.")
-                    return "INTERRUPTED"  # Trả về tín hiệu ngắt
+                    return {"status": "INTERRUPTED", "max_travel_time": max_travel_time, "selected_count": count}
                 elif status == "FATAL":
-                    return "FATAL"
+                    return {"status": "FATAL", "max_travel_time": max_travel_time, "selected_count": count}
 
                 time.sleep(3)
 
@@ -729,7 +1010,7 @@ class CombatManager:
                 btn_ok2 = self.vision.find_template(screen_after_ok, self._get_path("btn_ok_xuat_chien.png"))
 
                 # [DEBUG] Vẽ debug cho btn_ok2
-                if debug:
+                if self._should_debug(debug):
                     debug_img = screen_after_ok.copy()
 
                     # Vẽ vị trí btn_ok đã bấm trước đó (màu xanh dương)
@@ -773,12 +1054,12 @@ class CombatManager:
                     print("   [FAIL] Lỗi khi rút quân (Nút OK vẫn còn sau khi bấm).")
                     self.device.tap(2, 2)
                     self.device.tap(cx, cy)  # Tap lại vào thành chính để tắt popup thông tin
-                    return False
+                    return {"status": "FAILED", "max_travel_time": max_travel_time, "selected_count": count}
                 else:
                     print("   [DONE] Đã ra lệnh rút quân thành công.")
-                    return True
+                    return {"status": "SUCCESS", "max_travel_time": max_travel_time, "selected_count": count}
 
         print("   [FAIL] Lỗi khi rút quân (Không thấy nút hành quân).")
         # Tap ra ngoài để đóng popup
         self.device.tap(2, 2)
-        return False
+        return {"status": "FAILED", "max_travel_time": 0, "selected_count": 0}

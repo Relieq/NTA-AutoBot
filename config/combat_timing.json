@@ -1,0 +1,13 @@
+{
+  "default_battle_duration_seconds": 150,
+  "max_scout_targets_per_cycle": 10,
+  "battle_duration_seconds": {
+    "de": 20,
+    "nhap_mon": 80,
+    "thuong": 150,
+    "tang_bac": 240,
+    "kho": 420,
+    "dia_nguc": 480
+  }
+}
+

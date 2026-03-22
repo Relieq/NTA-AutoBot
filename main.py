@@ -41,8 +41,9 @@ def main():
 
         # Combat States
         "combat_status": "IDLE",  # IDLE, WAITING_RESULT, RETREATING
-        "battle_start_time": .0,
+        "battle_finish_time": .0,
         "combat_cooldown": .0,  # Thời gian nghỉ sau mỗi trận
+        "next_retreat_retry_time": .0,
     }
 
     # === VÒNG LẶP VÔ TẬN (GAME LOOP) ===
@@ -53,18 +54,26 @@ def main():
         # ƯU TIÊN 1: CHIẾN ĐẤU (DIG) - LOGIC PHỨC TẠP NHẤT
         # =========================================================
 
+        now = time.time()
+
         # Case 1: Đang rảnh và hết thời gian hồi chiêu -> Đi tìm đất
         if bot_state["combat_status"] == "IDLE":
             if time.time() >= bot_state["combat_cooldown"]:
                 print("> [COMBAT] Đang rảnh. Ra map tìm đất hoang...")
 
                 # Gọi hàm tấn công
-                has_attacked = combat.scan_and_dig()
+                dig_result = combat.scan_and_dig()
+                dig_status = dig_result.get("status") if isinstance(dig_result, dict) else ("SUCCESS" if dig_result else "NO_TARGET")
 
-                if has_attacked:
+                if dig_status == "SUCCESS":
+                    predicted_wait = int(dig_result.get("predicted_wait", 0))
                     print("   > Đã xuất quân! Chuyển trạng thái: CHỜ KẾT QUẢ")
                     bot_state["combat_status"] = "WAITING_RESULT"
-                    bot_state["battle_start_time"] = time.time()
+                    bot_state["battle_finish_time"] = time.time() + predicted_wait
+                    print(f"   > Thời gian chờ dự đoán trận đánh: {predicted_wait}s")
+                elif dig_status == "FATAL":
+                    print("   > [COMBAT] Gặp lỗi nghiêm trọng khi xử lý combat. Nghỉ 60s rồi thử lại.")
+                    bot_state["combat_cooldown"] = time.time() + 60
                 else:
                     print("   > Không tìm thấy đất ngon. Nghỉ 5 phút.")
                     bot_state["combat_cooldown"] = time.time() + 300
@@ -72,60 +81,64 @@ def main():
                 wait = int(bot_state["combat_cooldown"] - time.time())
                 print(f"> [COMBAT] Đang nghỉ ngơi hồi sức (Còn {wait}s)")
 
-        # Case 2: Đang chờ kết quả chiến đấu (Max 12 phút)
+        # Case 2: Đang chờ kết quả chiến đấu theo thời gian dự đoán
         elif bot_state["combat_status"] == "WAITING_RESULT":
-            elapsed = time.time() - bot_state["battle_start_time"]
-            print(f"> [COMBAT] Đang chờ quân đánh... ({int(elapsed)}s)")
-
-            # Logic kiểm tra chiến thắng:
-            # Vì ta không lưu tọa độ đất (do map trôi), ta dùng cơ chế timeout
-            # Hoặc quét toàn màn hình tìm icon Mũ Giáp (nếu camera chưa di chuyển)
-
-            # Ở đây dùng logic đơn giản như bạn yêu cầu:
-            # Chờ 10 phút (600s) cho chắc chắn thắng
-            if elapsed > 50:
-                print("   [INFO] Đã hết thời gian chờ (10p). Giả định đã thắng/thua xong.")
-                bot_state["combat_status"] = "RETREATING"
-
-            # Trong lúc chờ đánh nhau, bot có thể làm việc khác (như check daily) 
-            # nhưng hạn chế chuyển cảnh để tránh lỗi map. Tạm thời cho bot đứng im chờ.
-            # time.sleep(10)
-            # continue
-
-            # Case 3: Rút quân về hồi máu
-        elif bot_state["combat_status"] == "RETREATING":
-            if combat.retreat_troops_logic():
-                print("   [FINISH] Hoàn thành quy trình Dig.")
-                bot_state["combat_status"] = "IDLE"
-                # Nghỉ 5 phút để hồi máu lính
-                bot_state["combat_cooldown"] = time.time() + 300
+            remain = int(bot_state["battle_finish_time"] - time.time())
+            if remain > 0:
+                print(f"> [COMBAT] Đang chờ quân đánh... (Còn {remain}s)")
             else:
-                print("   [RETRY] Rút quân lỗi. Thử lại sau 10s.")
-                time.sleep(10)
+                print("   [INFO] Hết thời gian chờ dự đoán. Chuyển sang rút quân.")
+                bot_state["combat_status"] = "RETREATING"
+                bot_state["next_retreat_retry_time"] = time.time()
+
+        # Case 3: Rút quân về thành chính
+        elif bot_state["combat_status"] == "RETREATING":
+            if time.time() >= bot_state["next_retreat_retry_time"]:
+                retreat_result = combat.retreat_troops_logic()
+                retreat_status = retreat_result.get("status") if isinstance(retreat_result, dict) else ("SUCCESS" if retreat_result else "FAILED")
+
+                if retreat_status == "SUCCESS":
+                    print("   [FINISH] Hoàn thành quy trình Dig.")
+                    bot_state["combat_status"] = "IDLE"
+                    # Theo logic mới: chờ đúng bằng TG hành quân lớn nhất khi rút quân (không cộng hồi máu)
+                    retreat_wait = int(retreat_result.get("max_travel_time", 0)) if isinstance(retreat_result, dict) else 0
+                    bot_state["combat_cooldown"] = time.time() + retreat_wait
+                    print(f"   [COMBAT] Cooldown sau retreat: {retreat_wait}s")
+                elif retreat_status == "INTERRUPTED":
+                    print("   [RETRY] Retreat bị ngắt do Captcha. Thử lại sau 5s.")
+                    bot_state["next_retreat_retry_time"] = time.time() + 5
+                elif retreat_status == "FATAL":
+                    print("   [FATAL] Retreat gặp lỗi nghiêm trọng. Lùi 60s trước khi thử lại.")
+                    bot_state["next_retreat_retry_time"] = time.time() + 60
+                else:
+                    print("   [RETRY] Rút quân lỗi. Thử lại sau 10s.")
+                    bot_state["next_retreat_retry_time"] = time.time() + 10
+            else:
+                wait_retreat = int(bot_state["next_retreat_retry_time"] - time.time())
+                print(f"> [RETREAT] Đang chờ retry rút quân ({wait_retreat}s)")
 
         # =========================================================
-        # ƯU TIÊN 2: DAILY TASK (Chỉ làm khi Combat đang IDLE hoặc Cooldown)
+        # ƯU TIÊN 2: DAILY TASK (Cho phép chạy cả khi đang chờ combat/retreat)
         # =========================================================
 
-        if bot_state["combat_status"] == "IDLE":
-            # 1. Vòng quay
-            if time.time() >= bot_state["next_spin_time"]:
-                daily.do_lucky_wheel()
-                bot_state["next_spin_time"] = time.time() + 600
-                continue
+        # 1. Vòng quay
+        if time.time() >= bot_state["next_spin_time"]:
+            daily.do_lucky_wheel()
+            bot_state["next_spin_time"] = time.time() + 600
+            continue
 
-            # 2. Nhận vàng
-            if time.time() >= bot_state["next_gold_time"]:
-                daily.claim_free_gold()
-                bot_state["next_gold_time"] = time.time() + 3600
-                continue
+        # 2. Nhận vàng
+        if time.time() >= bot_state["next_gold_time"]:
+            daily.claim_free_gold()
+            bot_state["next_gold_time"] = time.time() + 3600
+            continue
 
         # =========================================================
         # ƯU TIÊN 3: XÂY DỰNG (BUILDER)
         # =========================================================
 
-        # Chỉ xây khi Combat IDLE (để tránh xung đột màn hình Thành/Map)
-        if bot_state["combat_status"] == "IDLE" and time.time() >= bot_state["builder_free_time"]:
+        # Theo logic mới: Build có thể chạy song song khi đang chờ combat/retreat
+        if time.time() >= bot_state["builder_free_time"]:
             if bot_state["build_index"] < len(BUILD_SEQUENCE):
                 task = BUILD_SEQUENCE[bot_state["build_index"]]
 

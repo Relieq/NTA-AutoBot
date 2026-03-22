@@ -1,0 +1,37 @@
+{
+  "enabled": true,
+  "tiers": {
+	"de": {
+	  "default": false,
+	  "levels": {}
+	},
+	"nhap_mon": {
+	  "default": false,
+	  "levels": {}
+	},
+	"thuong": {
+	  "default": false,
+	  "levels": {}
+	},
+	"tang_bac": {
+	  "default": false,
+	  "levels": {
+		"2": true,
+		"3": true
+	  }
+	},
+	"kho": {
+	  "default": false,
+	  "levels": {
+		"1": true,
+		"2": true,
+		"3": true
+	  }
+	},
+	"dia_nguc": {
+	  "default": true,
+	  "levels": {}
+	}
+  }
+}
+

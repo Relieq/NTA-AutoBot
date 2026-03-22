@@ -89,7 +89,9 @@ Ví dụ profile theo từng nút:
 ### Combat tuning
 Trong `modules/combat.py`:
 - `screen_w`, `screen_h` đang giả định `1600x900`
-- `blacklist_difficulty` lọc tên mục tiêu OCR (so khớp theo text đã chuẩn hóa không dấu)
+- Rule tick checkbox: chỉ tính thành công khi OCR được `TG hành quân` của dòng quân đó
+- Cấu hình thời gian combat nằm trong `config/combat_timing.json`
+- Cấu hình blacklist độ khó theo từng tier/level nằm trong `config/combat_difficulty_blacklist.json`
 - Màu viền xanh map (`lower_green`/`upper_green`) để tìm border target
 
 Trong `core/map_core.py`:
@@ -142,6 +144,26 @@ python main.py
 Tắt debug:
 ```powershell
 $env:VISION_DEBUG = "0"
+```
+
+### Debug ảnh combat (OCR thời gian hành quân, checkbox, retreat)
+`CombatManager` hỗ trợ bật/tắt debug toàn cục bằng biến môi trường `COMBAT_DEBUG`.
+
+OCR thời gian hành quân dùng `PaddleOCR` (pipeline giống builder) để ổn định hơn với chuỗi dạng thời gian.
+
+Ảnh debug OCR thời gian được tách thành 2 nhóm:
+- `debug_img/combat/time_overlay/`: ảnh full màn hình có khoanh ROI + kết quả parse
+- `debug_img/combat/time_processed/`: ảnh vùng đã tiền xử lý OCR + text/parse
+
+Bật debug combat:
+```powershell
+$env:COMBAT_DEBUG = "1"
+python main.py
+```
+
+Tắt debug combat:
+```powershell
+$env:COMBAT_DEBUG = "0"
 ```
 
 Khi bot click sai/không tìm thấy UI:
