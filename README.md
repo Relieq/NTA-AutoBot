@@ -102,7 +102,9 @@ Trong `core/map_core.py`:
 ### Captcha model + labels
 Trong `modules/captcha.py`:
 - `assets/captcha_model.onnx` phải tồn tại
-- Thứ tự `labels` phải khớp 100% với class order khi train
+- Ưu tiên đọc `assets/captcha_labels.json` để đồng bộ thứ tự labels theo model
+- Nếu thiếu file labels json, solver mới fallback sang danh sách hardcode
+- Nếu có `assets/captcha_group_model.onnx`, solver sẽ ưu tiên score theo model 6 nhóm (đúng objective captcha)
 
 ## 7) Retrain model captcha
 Dữ liệu nằm trong `dataset/` (mỗi class là 1 folder).
@@ -113,7 +115,18 @@ cd D:\PyCharm\Project\NTA-AutoBot
 python train_captcha.py
 ```
 
-Sau khi train, file model mới được export vào `assets/captcha_model.onnx`.
+Sau khi train, file mới được export vào:
+- `assets/captcha_model.onnx`
+- `assets/captcha_labels.json`
+
+Train thêm model captcha theo 6 nhóm (khuyến nghị):
+```powershell
+python train_captcha_group.py
+```
+
+File export của group model:
+- `assets/captcha_group_model.onnx`
+- `assets/captcha_group_labels.json`
 
 ## 8) Assets là hợp đồng bắt buộc
 Bot chỉ hành động được nếu template đúng và khớp UI game:
@@ -219,6 +232,19 @@ Khi bot click sai/không tìm thấy UI:
 ### Captcha fail
 - Kiểm tra `assets/title_captcha.png`, `assets/btn_ok_captcha.png`
 - Retrain lại model và đồng bộ thứ tự `labels`
+
+### Test captcha offline từ ảnh chụp
+Bạn có thể test solver mà không cần chờ captcha xuất hiện trong game:
+
+```powershell
+python test_captcha_solver.py --image "debug_img\your_captcha_screen.png"
+```
+
+Nếu muốn chỉ định đường dẫn ảnh debug output:
+
+```powershell
+python test_captcha_solver.py --image "debug_img\your_captcha_screen.png" --save-debug "debug_img\captcha_test_result.png"
+```
 
 ## 12) Lưu ý an toàn vận hành
 - Đây là bot tự động thao tác game, có rủi ro account tùy theo chính sách game.
