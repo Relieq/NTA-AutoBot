@@ -166,6 +166,28 @@ Tắt debug combat:
 $env:COMBAT_DEBUG = "0"
 ```
 
+### Debug ảnh builder
+`BuilderManager` hỗ trợ bật/tắt debug toàn cục bằng biến môi trường `BUILDER_DEBUG`.
+
+Builder debug hiện tách theo nhóm thư mục:
+- `debug_img/builder/build_list_overlay/`: ảnh overlay danh sách build từng vòng lăn
+- `debug_img/builder/build_list_processed/`: ảnh ROI đã xử lý OCR theo từng dòng
+- `debug_img/builder/level_ocr/`: debug OCR level công trình
+- `debug_img/builder/time_ocr/`: debug OCR thời gian build/upgrade
+
+Khi OCR tên công trình, log console sẽ in cả `raw` và `norm` để đối chiếu kết quả match.
+
+Bật debug builder:
+```powershell
+$env:BUILDER_DEBUG = "1"
+python main.py
+```
+
+Tắt debug builder:
+```powershell
+$env:BUILDER_DEBUG = "0"
+```
+
 Khi bot click sai/không tìm thấy UI:
 1. Giảm/tăng threshold tại call đó
 2. Kiểm tra lại template screenshot

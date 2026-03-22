@@ -8,6 +8,9 @@ __pychache__/
 
 .env
 
+data
+debug_img
+
 terminal_log.txt
 
 test_connection.py

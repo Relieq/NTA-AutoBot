@@ -150,14 +150,14 @@
             "last_updated": 1774153305
         },
         "487,140": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 4",
-            "last_updated": 1774157671
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774192077
         },
         "488,141": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 4",
-            "last_updated": 1774158112
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774194112
         },
         "490,140": {
             "state": "RESOURCE",
@@ -190,9 +190,9 @@
             "last_updated": 1774179637
         },
         "490,135": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 4",
-            "last_updated": 1774160401
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774195713
         },
         "488,133": {
             "state": "OWNED",
@@ -200,9 +200,9 @@
             "last_updated": 1774180418
         },
         "489,134": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 4",
-            "last_updated": 1774175367
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774195385
         },
         "487,134": {
             "state": "OWNED",
@@ -250,9 +250,9 @@
             "last_updated": 1774183742
         },
         "488,142": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 4",
-            "last_updated": 1774181688
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774194748
         },
         "489,143": {
             "state": "OWNED",
@@ -393,6 +393,36 @@
             "state": "OWNED",
             "difficulty": "",
             "last_updated": 1774187687
+        },
+        "485,139": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774192016
+        },
+        "486,140": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774193101
+        },
+        "487,141": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774193694
+        },
+        "485,140": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774193617
+        },
+        "486,141": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 6",
+            "last_updated": 1774193633
+        },
+        "487,142": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774194051
         }
     }
 }

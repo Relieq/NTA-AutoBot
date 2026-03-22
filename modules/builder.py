@@ -2,18 +2,26 @@ import time
 import os
 import cv2
 import re
+import unicodedata
+from datetime import datetime
+import easyocr
 from paddleocr import PaddleOCR
 from config.build_order import BUILD_SEQUENCE
 from modules.scene import SceneManager
 
 
 class BuilderManager:
-    def __init__(self, device, vision, captcha_solver=None):
+    def __init__(self, device, vision, captcha_solver=None, debug_enabled=None, debug_dir="debug_img/builder"):
         self.device = device
         self.vision = vision
         self.captcha_solver = captcha_solver  # Nhận instance từ main.py
         self.assets_dir = os.path.join(os.getcwd(), "assets")
+        env_debug = os.getenv("BUILDER_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}
+        self.debug_enabled = env_debug if debug_enabled is None else bool(debug_enabled)
+        self.debug_dir = os.path.abspath(debug_dir)
         self.ocr = PaddleOCR(use_angle_cls=True, lang='en', enable_mkldnn=False)
+        # OCR tên công trình tiếng Việt dùng EasyOCR để ổn định hơn với dấu.
+        self.name_ocr = easyocr.Reader(['vi'], gpu=False, verbose=False)
 
     def _get_path(self, filename):
         return os.path.join(self.assets_dir, filename)
@@ -21,6 +29,181 @@ class BuilderManager:
     def _get_building_path(self, filename):
         # Giả sử bạn để ảnh nhà trong assets/buildings/
         return os.path.join(self.assets_dir, "buildings", filename)
+
+    def _should_debug(self, debug_override):
+        if debug_override is None:
+            return self.debug_enabled
+        return bool(debug_override)
+
+    def _debug_subdir(self, subdir):
+        path = os.path.join(self.debug_dir, subdir)
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def _normalize_text(self, text):
+        if not text:
+            return ""
+        text = str(text).strip().lower()
+        text = unicodedata.normalize("NFD", text)
+        text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+        text = text.replace("đ", "d")
+        text = re.sub(r"[^a-z0-9\s]", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    def _is_building_name_match(self, target_name, ocr_text):
+        target_norm = self._normalize_text(target_name)
+        ocr_norm = self._normalize_text(ocr_text)
+
+        if not target_norm or not ocr_norm:
+            return False
+
+        if target_norm in ocr_norm or ocr_norm in target_norm:
+            return True
+
+        target_tokens = [t for t in target_norm.split(" ") if len(t) >= 2]
+        ocr_tokens = set([t for t in ocr_norm.split(" ") if len(t) >= 2])
+        if not target_tokens:
+            return False
+
+        overlap = sum(1 for t in target_tokens if t in ocr_tokens)
+        return (overlap / len(target_tokens)) >= 0.6
+
+    def _ocr_building_name_region(self, screen_img, x1, y1, x2, y2):
+        crop = screen_img[y1:y2, x1:x2]
+        if crop.size == 0:
+            return {"raw": "", "norm": "", "processed": None}
+
+        enlarged = cv2.resize(crop, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+        gray = cv2.cvtColor(enlarged, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced = clahe.apply(gray)
+        processed = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
+
+        try:
+            rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
+            results = self.name_ocr.readtext(rgb)
+        except Exception as exc:
+            print(f"   [BUILD-OCR-ERR] EasyOCR lỗi: {exc}")
+            results = []
+
+        rec_texts = [item[1] for item in results] if results else []
+        raw_text = " ".join(rec_texts).strip()
+        norm_text = self._normalize_text(raw_text)
+
+        return {
+            "raw": raw_text,
+            "norm": norm_text,
+            "processed": processed,
+        }
+
+    def _draw_build_list_debug(self, screen_img, rows, round_idx, target_name):
+        if not self.debug_enabled:
+            return
+
+        overlay_dir = self._debug_subdir("build_list_overlay")
+        processed_dir = self._debug_subdir("build_list_processed")
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
+        img = screen_img.copy()
+        target_norm = self._normalize_text(target_name)
+        cv2.putText(img, f"BUILD LIST ROUND {round_idx} | TARGET: {target_name}", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(img, f"TARGET_NORM: {target_norm}", (10, 58),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
+
+        for idx, row in enumerate(rows):
+            bx, by = row["btn"]
+            x1, y1, x2, y2 = row["roi"]
+            color = (0, 255, 0) if row["matched"] else (0, 165, 255)
+
+            cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+            cv2.circle(img, (bx, by), 5, color, -1)
+            cv2.putText(img, f"#{idx + 1} RAW:{row['raw_text']}", (x1, max(20, y1 - 24)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.42, color, 1)
+            cv2.putText(img, f"NORM:{row['norm_text']}", (x1, max(20, y1 - 8)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
+
+            processed = row.get("processed")
+            if processed is not None and processed.size > 0:
+                processed_vis = processed.copy()
+                cv2.putText(processed_vis, f"RAW: {row['raw_text']}", (8, 22),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
+                cv2.putText(processed_vis, f"NORM: {row['norm_text']}", (8, 48),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 2)
+                cv2.putText(processed_vis, f"MATCH: {row['matched']}", (8, 74),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
+                processed_path = os.path.join(
+                    processed_dir,
+                    f"debug_build_list_processed_round{round_idx}_row{idx + 1}_{stamp}.png",
+                )
+                cv2.imwrite(processed_path, processed_vis)
+
+        debug_path = os.path.join(overlay_dir, f"debug_build_list_round{round_idx}_{stamp}.png")
+        cv2.imwrite(debug_path, img)
+        print(f"   [DEBUG] Đã lưu build-list debug: {debug_path}")
+
+    def _find_target_build_button(self, target_name, btn_xay_path, max_swipe_rounds=5):
+        target_norm = self._normalize_text(target_name)
+        print(f"   [BUILD-OCR] Target raw='{target_name}' | norm='{target_norm}'")
+
+        for swipe_round in range(max_swipe_rounds):
+            screen = self.device.take_screenshot()
+            all_btn_xay = self.vision.find_all_templates(screen, btn_xay_path)
+
+            if not all_btn_xay:
+                print(f"   [BUILD] Vòng {swipe_round + 1}: Không thấy nút Xây nào.")
+                return None, False
+
+            rows = []
+            matched_btn = None
+            h, w, _ = screen.shape
+
+            for idx, btn in enumerate(all_btn_xay):
+                bx, by = btn
+                # Vùng tên công trình nằm bên trái nút Xây theo từng dòng.
+                x1 = max(0, bx - int(w * 0.2))
+                x2 = max(x1 + 1, bx)
+                y1 = max(0, by - int(h * 0.17))
+                y2 = max(y1 + 1, by - int(h * 0.14))
+
+                ocr_info = self._ocr_building_name_region(screen, x1, y1, x2, y2)
+                raw_text = ocr_info["raw"]
+                norm_text = ocr_info["norm"]
+                matched = self._is_building_name_match(target_name, raw_text)
+
+                print(
+                    f"   [BUILD-OCR] Round {swipe_round + 1} Row {idx + 1}: "
+                    f"raw='{raw_text}' | norm='{norm_text}' | matched={matched}"
+                )
+
+                rows.append({
+                    "btn": (bx, by),
+                    "roi": (x1, y1, x2, y2),
+                    "raw_text": raw_text,
+                    "norm_text": norm_text,
+                    "processed": ocr_info.get("processed"),
+                    "matched": matched,
+                })
+
+                if matched and matched_btn is None:
+                    matched_btn = (bx, by)
+
+            self._draw_build_list_debug(screen, rows, swipe_round + 1, target_name)
+
+            if matched_btn:
+                print(f"   [BUILD] Match công trình '{target_name}' tại nút {matched_btn} (vòng {swipe_round + 1}).")
+                return matched_btn, True
+
+            # Lăn danh sách để tìm tiếp.
+            print(f"   [BUILD] Chưa thấy '{target_name}' ở vòng {swipe_round + 1}. Lăn danh sách...")
+            swipe_x = w // 2
+            swipe_start_y = h // 2 + 100
+            swipe_end_y = h // 2 - 100
+            self.device.precise_drag(swipe_x, swipe_start_y, swipe_x, swipe_end_y, duration=1800)
+            time.sleep(1.0)
+
+        return None, True
 
     # ==========================================================
     # HÀM XỬ LÝ CAPTCHA (INTERRUPT HANDLER)
@@ -60,7 +243,7 @@ class BuilderManager:
         return "OK"
 
     # --- HÀM 1: Đọc Level hiện tại (Quan trọng nhất để Skip) ---
-    def check_current_level(self, save_debug=False):
+    def check_current_level(self, save_debug=None):
         """
         Chụp popup thông tin, crop vùng chứa chữ 'Cấp X' và đọc số.
         Trả về: int (level) hoặc None nếu không đọc được.
@@ -94,7 +277,8 @@ class BuilderManager:
         processed_img = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
 
         # [DEBUG] Vẽ khung crop lên ảnh gốc và lưu lại
-        if save_debug:
+        if self._should_debug(save_debug):
+            level_dir = self._debug_subdir("level_ocr")
             debug_img = screen.copy()
             # Vẽ hình chữ nhật màu xanh lá (BGR: 0, 255, 0), độ dày 2px
             cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -102,17 +286,17 @@ class BuilderManager:
             cv2.putText(debug_img, f"Crop: ({x1},{y1}) - ({x2},{y2})",
                         (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             # Lưu ảnh debug
-            debug_path = os.path.join(os.getcwd(), "debug_img", "debug_crop_level.png")
+            debug_path = os.path.join(level_dir, "debug_crop_level.png")
             cv2.imwrite(debug_path, debug_img)
             print(f"   [DEBUG] Đã lưu ảnh debug: {debug_path}")
 
             # Lưu ảnh crop gốc
-            crop_debug_path = os.path.join(os.getcwd(), "debug_img", "debug_crop_only.png")
+            crop_debug_path = os.path.join(level_dir, "debug_crop_only.png")
             cv2.imwrite(crop_debug_path, crop_img)
             print(f"   [DEBUG] Đã lưu ảnh crop gốc: {crop_debug_path}")
 
             # Lưu ảnh đã xử lý (ảnh mà OCR sẽ đọc)
-            processed_debug_path = os.path.join(os.getcwd(), "debug_img", "debug_crop_processed.png")
+            processed_debug_path = os.path.join(level_dir, "debug_crop_processed.png")
             cv2.imwrite(processed_debug_path, processed_img)
             print(f"   [DEBUG] Đã lưu ảnh đã xử lý: {processed_debug_path}")
 
@@ -157,7 +341,7 @@ class BuilderManager:
         return None
 
     # --- HÀM: Đọc thời gian Tăng cấp ---
-    def check_upgrade_time(self, save_debug=True):
+    def check_upgrade_time(self, save_debug=None):
         """
         Chụp popup thông tin, crop vùng chứa thời gian tăng cấp và đọc.
         Trả về: int (số giây) hoặc None nếu không đọc được.
@@ -174,7 +358,7 @@ class BuilderManager:
         return self._ocr_time_region(screen, x1, y1, x2, y2, "upgrade", save_debug)
 
     # --- HÀM: Đọc thời gian Xây mới ---
-    def check_build_time(self, save_debug=True):
+    def check_build_time(self, save_debug=None):
         """
         Chụp popup thông tin, crop vùng chứa thời gian xây mới và đọc.
         Trả về: int (số giây) hoặc None nếu không đọc được.
@@ -190,7 +374,7 @@ class BuilderManager:
 
         return self._ocr_time_region(screen, x1, y1, x2, y2, "build", save_debug)
 
-    def _ocr_time_region(self, screen, x1, y1, x2, y2, debug_name, save_debug=False):
+    def _ocr_time_region(self, screen, x1, y1, x2, y2, debug_name, save_debug=None):
         crop_img = screen[y1:y2, x1:x2]
 
         scale_factor = 3
@@ -201,12 +385,13 @@ class BuilderManager:
         enhanced = clahe.apply(gray)
         processed_img = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
 
-        if save_debug:
+        if self._should_debug(save_debug):
+            time_dir = self._debug_subdir("time_ocr")
             debug_img = screen.copy()
             cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
             cv2.putText(debug_img, f"Time Crop: ({x1},{y1}) - ({x2},{y2})",
                         (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-            debug_path = os.path.join(os.getcwd(), "debug_img", f"debug_crop_time_{debug_name}.png")
+            debug_path = os.path.join(time_dir, f"debug_crop_time_{debug_name}.png")
             cv2.imwrite(debug_path, debug_img)
             print(f"   [DEBUG] Đã lưu ảnh debug: {debug_path}")
 
@@ -276,18 +461,16 @@ class BuilderManager:
             time.sleep(2)  # Chờ menu trượt lên
 
             # 2. Đọc thời gian xây TRƯỚC KHI bấm nút Xây
-            build_time = self.check_build_time(save_debug=True)
+            build_time = self.check_build_time()
             if build_time:
                 print(f"   [INFO] Thời gian xây dự kiến: {build_time} giây")
 
-            # 3. Tìm TẤT CẢ các nút 'Xây' và chọn nút TRÊN CÙNG (y nhỏ nhất)
+            # 3. OCR tên công trình theo từng dòng và chọn đúng nút Xây tương ứng
             btn_xay_path = self._get_path("btn_xay_confirm.png")
-            all_btn_xay = self.vision.find_all_templates(self.device.take_screenshot(), btn_xay_path)
+            btn_xay, has_list = self._find_target_build_button(building_name_display, btn_xay_path, max_swipe_rounds=5)
 
-            if all_btn_xay:
-                btn_xay = all_btn_xay[0]
-                print(
-                    f"   [+] Tìm thấy {len(all_btn_xay)} nút Xây. Chọn nút trên cùng tại ({btn_xay[0]}, {btn_xay[1]})")
+            if btn_xay:
+                print(f"   [+] Chọn đúng nút Xây của '{building_name_display}' tại ({btn_xay[0]}, {btn_xay[1]})")
                 self.device.tap(btn_xay[0], btn_xay[1])
 
                 # === GỌI HÀM KIỂM TRA CAPTCHA TẠI ĐÂY ===
@@ -313,7 +496,10 @@ class BuilderManager:
                     print("   [SUCCESS] Xây thành công (Popup đã đóng).")
                     return True, build_time
             else:
-                print("   [-] Không thấy nút Xây nào trong danh sách. Có thể đã xây.")
+                if has_list:
+                    print(f"   [INFO] Không thấy '{building_name_display}' trong danh sách build. Xem như đã xây.")
+                else:
+                    print("   [-] Không thấy nút Xây nào trong danh sách. Có thể đã xây hết.")
                 self.device.tap(1, 1)
                 return True, 1
 
@@ -360,7 +546,7 @@ class BuilderManager:
                 print("   [WARN] Không đọc được level. Giả định cần nâng cấp.")
 
             # 4. Đọc thời gian tăng cấp
-            upgrade_time = self.check_upgrade_time(save_debug=True)
+            upgrade_time = self.check_upgrade_time()
             if upgrade_time:
                 print(f"   [INFO] Thời gian tăng cấp dự kiến: {upgrade_time} giây")
 
