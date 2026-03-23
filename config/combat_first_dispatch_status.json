@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "tiers": {
+    "de": true,
+    "nhap_mon": true,
+    "thuong": true,
+    "tang_bac": false,
+    "kho": false,
+    "dia_nguc": false
+  }
+}

@@ -53,7 +53,7 @@ class DailyTaskManager:
             if self.find_and_tap("btn_quay.png", wait_after=4):
                 print("   > Đã quay xong.")
             else:
-                print("   > Không tháy nút quay (Hết lượt?).")
+                print("   > Không thấy nút quay (Hết lượt?).")
 
             # 3. Thoát ra (Tap vào vùng an toàn)
             self.device.tap(1, 1)

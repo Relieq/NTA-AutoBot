@@ -40,6 +40,12 @@
         "edge": 1.0
       }
     },
+    "btn_tiep_tuc.png": {
+      "threshold": 0.7,
+      "weights": {
+        "edge": 1.0
+      }
+    },
     "btn_xay_dung_menu.png": {
       "threshold": 0.8,
       "find_all": {

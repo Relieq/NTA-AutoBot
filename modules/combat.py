@@ -55,6 +55,22 @@ class CombatManager:
                 },
             },
         )
+        self.first_dispatch_status_path = os.path.join("config", "combat_first_dispatch_status.json")
+        self.first_dispatch_status = self._load_json_config(
+            self.first_dispatch_status_path,
+            {
+                "enabled": True,
+                "tiers": {
+                    "de": False,
+                    "nhap_mon": False,
+                    "thuong": False,
+                    "tang_bac": False,
+                    "kho": False,
+                    "dia_nguc": False,
+                },
+            },
+        )
+        self._normalize_first_dispatch_status()
 
         # [CẤU HÌNH MÀU SẮC]
         # Màu viền xanh lá cây của lãnh thổ (Hệ màu BGR của OpenCV)
@@ -93,6 +109,68 @@ class CombatManager:
         except Exception as exc:
             print(f"   [COMBAT-WARN] Lỗi đọc '{relative_path}': {exc}. Dùng mặc định.")
         return default_value
+
+    def _save_json_config(self, relative_path, data):
+        full_path = os.path.join(os.getcwd(), relative_path)
+        try:
+            parent = os.path.dirname(full_path)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            with open(full_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            return True
+        except Exception as exc:
+            print(f"   [COMBAT-WARN] Không thể ghi '{relative_path}': {exc}")
+            return False
+
+    def _normalize_first_dispatch_status(self):
+        expected_tiers = ["de", "nhap_mon", "thuong", "tang_bac", "kho", "dia_nguc"]
+        changed = False
+
+        if not isinstance(self.first_dispatch_status, dict):
+            self.first_dispatch_status = {"enabled": True, "tiers": {}}
+            changed = True
+
+        if "enabled" not in self.first_dispatch_status:
+            self.first_dispatch_status["enabled"] = True
+            changed = True
+
+        tiers = self.first_dispatch_status.get("tiers", {})
+        if not isinstance(tiers, dict):
+            tiers = {}
+            self.first_dispatch_status["tiers"] = tiers
+            changed = True
+
+        for tier in expected_tiers:
+            if tier not in tiers:
+                tiers[tier] = False
+                changed = True
+            else:
+                tiers[tier] = bool(tiers[tier])
+
+        if changed:
+            self._save_json_config(self.first_dispatch_status_path, self.first_dispatch_status)
+
+    def _should_handle_first_dispatch_warning(self, tier_key):
+        if not self.first_dispatch_status.get("enabled", True):
+            return True
+        if not tier_key:
+            return True
+        tiers = self.first_dispatch_status.get("tiers", {})
+        return not bool(tiers.get(tier_key, False))
+
+    def _mark_first_dispatch_done(self, tier_key):
+        if not tier_key:
+            return
+        tiers = self.first_dispatch_status.get("tiers", {})
+        if not isinstance(tiers, dict):
+            tiers = {}
+            self.first_dispatch_status["tiers"] = tiers
+        if bool(tiers.get(tier_key, False)):
+            return
+        tiers[tier_key] = True
+        if self._save_json_config(self.first_dispatch_status_path, self.first_dispatch_status):
+            print(f"   [COMBAT] Đánh dấu đã xử lý lần đầu cho dải độ khó: {tier_key}")
 
     def _draw_detection_box(self, debug_img, center_pos, template_name, label, color):
         """Vẽ khung khoanh vùng dựa trên kích thước template đã match."""
@@ -293,6 +371,123 @@ class CombatManager:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
             processed_path = os.path.join(processed_dir, f"debug_travel_time_processed_{debug_prefix}_{ts}_{int(cx)}_{int(cy)}.png")
             cv2.imwrite(processed_path, processed_out)
+
+    def _get_center_roi(self, width_ratio=0.5, height_ratio=0.5):
+        """ROI trung tâm màn hình để lọc checkbox của popup cảnh báo, tránh quét nhầm vùng UI khác."""
+        rw = int(self.screen_w * width_ratio)
+        rh = int(self.screen_h * height_ratio)
+        x1 = max(0, (self.screen_w - rw) // 2)
+        y1 = max(0, (self.screen_h - rh) // 2)
+        x2 = min(self.screen_w, x1 + rw)
+        y2 = min(self.screen_h, y1 + rh)
+        return x1, y1, x2, y2
+
+    def _save_warning_popup_debug(self, screen_img, roi, checkbox_pos, btn_tiep_tuc_pos, note, debug_override=None):
+        if not self._should_debug(debug_override):
+            return
+
+        out_dir = os.path.join(self.debug_dir, "warning_popup")
+        os.makedirs(out_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
+        x1, y1, x2, y2 = roi
+        debug_img = screen_img.copy()
+        cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 165, 255), 2)
+        cv2.putText(debug_img, "CENTER ROI", (x1, max(20, y1 - 8)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 165, 255), 2)
+
+        if btn_tiep_tuc_pos:
+            cv2.circle(debug_img, btn_tiep_tuc_pos, 8, (0, 255, 0), -1)
+            cv2.putText(debug_img, "btn_tiep_tuc", (btn_tiep_tuc_pos[0] + 10, btn_tiep_tuc_pos[1] - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+
+        if checkbox_pos:
+            cv2.circle(debug_img, checkbox_pos, 8, (255, 0, 255), -1)
+            cv2.putText(debug_img, "checkbox_khong_nhac", (checkbox_pos[0] + 10, checkbox_pos[1] - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 1)
+
+        cv2.putText(debug_img, note, (10, self.screen_h - 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
+
+        out_path = os.path.join(out_dir, f"debug_warning_popup_{ts}.png")
+        cv2.imwrite(out_path, debug_img)
+
+    def _find_warning_checkbox_in_center_roi(self, screen_img, roi):
+        """Tìm checkbox chưa tick trong ROI trung tâm popup cảnh báo, trả về điểm gần tâm ROI nhất."""
+        x1, y1, x2, y2 = roi
+        if x2 <= x1 or y2 <= y1:
+            return None
+
+        crop = screen_img[y1:y2, x1:x2]
+        hits = self.vision.find_all_templates(crop, self._get_path("checkbox_unchecked.png"))
+        if not hits:
+            return None
+
+        roi_cx = (x2 - x1) // 2
+        roi_cy = (y2 - y1) // 2
+        best = min(hits, key=lambda p: (p[0] - roi_cx) ** 2 + (p[1] - roi_cy) ** 2)
+        return x1 + int(best[0]), y1 + int(best[1])
+
+    def _handle_difficulty_warning_after_dispatch_ok(self, debug=None, max_checks=4):
+        """
+        Xử lý popup cảnh báo độ khó lần đầu (nếu có) sau khi bấm OK xuất chiến.
+        Trả về:
+            "NOT_FOUND": không có popup (luồng bình thường)
+            "HANDLED": đã tick "Không nhắc lại" + bấm "Tiếp tục" thành công
+            "FAILED": phát hiện popup nhưng xử lý không xong
+        """
+        roi = self._get_center_roi(width_ratio=0.2, height_ratio=0.3)
+        btn_tiep_tuc_tpl = self._get_path("btn_tiep_tuc.png")
+        popup_seen = False
+
+        for attempt in range(max_checks):
+            # Popup có thể xuất hiện trễ sau animation UI.
+            time.sleep(2)
+            screen = self.device.take_screenshot()
+
+            btn_tiep_tuc = self.vision.find_template(screen, btn_tiep_tuc_tpl)
+
+            if not btn_tiep_tuc:
+                # Debug tạm: lưu ảnh mỗi lần quét để kiểm tra ROI có khoanh đúng vùng popup không.
+                self._save_warning_popup_debug(
+                    screen,
+                    roi,
+                    None,
+                    None,
+                    f"warning_popup_attempt_{attempt + 1}_btn_tiep_tuc_not_found",
+                    debug_override=debug,
+                )
+                continue
+
+            popup_seen = True
+
+            checkbox_pos = self._find_warning_checkbox_in_center_roi(screen, roi)
+            if checkbox_pos:
+                self.device.tap(checkbox_pos[0], checkbox_pos[1])
+                time.sleep(0.25)
+                print(f"   [COMBAT] Đã tick 'Không nhắc lại' tại ({checkbox_pos[0]}, {checkbox_pos[1]}).")
+            else:
+                print("   [COMBAT-WARN] Có popup cảnh báo nhưng chưa tìm thấy checkbox trong ROI trung tâm.")
+
+            self.device.tap(btn_tiep_tuc[0], btn_tiep_tuc[1])
+            print("   [COMBAT] Đã bấm 'Tiếp tục' để đóng cảnh báo độ khó lần đầu.")
+            time.sleep(1.0)
+            after = self.device.take_screenshot()
+            still_visible = self.vision.find_template(after, btn_tiep_tuc_tpl)
+            self._save_warning_popup_debug(
+                after,
+                roi,
+                checkbox_pos,
+                still_visible,
+                "warning_popup_handled" if not still_visible else "warning_popup_still_visible",
+                debug_override=debug,
+            )
+            if still_visible:
+                print("   [COMBAT-WARN] Popup cảnh báo vẫn còn sau khi bấm 'Tiếp tục'.")
+                return "FAILED"
+            return "HANDLED"
+
+        return "FAILED" if popup_seen else "NOT_FOUND"
 
     def safe_wait_and_check(self, wait_time=1.5):
         """
@@ -590,7 +785,7 @@ class CombatManager:
             "rank": parsed["rank"],
         }
 
-    def dispatch_troops(self, btn_chiem_pos, debug=None):
+    def dispatch_troops(self, btn_chiem_pos, tier_key="", debug=None):
         """Quy trình xuất quân. Tick hợp lệ khi OCR được thời gian hành quân của dòng quân đó."""
         print("   [ACT] Bấm Chiếm...")
         self.device.tap(btn_chiem_pos[0], btn_chiem_pos[1])
@@ -692,6 +887,22 @@ class CombatManager:
         btn_ok = self.vision.find_template(screen_after_tick, self._get_path("btn_ok_xuat_chien.png"))
         if btn_ok:
             self.device.tap(btn_ok[0], btn_ok[1])
+
+            if self._should_handle_first_dispatch_warning(tier_key):
+                warning_status = self._handle_difficulty_warning_after_dispatch_ok(debug=debug)
+                if warning_status == "FAILED":
+                    print("   [ERR] Không xử lý được popup cảnh báo độ khó sau khi bấm OK xuất chiến.")
+                    return {"status": "FAILED", "max_travel_time": max_travel_time, "selected_count": count}
+                if warning_status == "HANDLED":
+                    print("   [COMBAT] Popup cảnh báo độ khó đã được xử lý, tiếp tục kiểm tra Captcha.")
+                elif warning_status == "NOT_FOUND":
+                    print("   [COMBAT] Không thấy popup cảnh báo; tiếp tục luồng xuất quân bình thường.")
+                self._mark_first_dispatch_done(tier_key)
+            else:
+                if tier_key:
+                    print(f"   [COMBAT] Bỏ qua check popup cảnh báo cho dải '{tier_key}' (đã xử lý trước đó).")
+                else:
+                    print("   [COMBAT] Không xác định được tier_key, vẫn xử lý như luồng thường.")
 
             # === GỌI HÀM KIỂM TRA CAPTCHA SAU KHI BẤM OK ===
             status = self.safe_wait_and_check(wait_time=1.5)
@@ -828,7 +1039,7 @@ class CombatManager:
                 btn_chiem_pos = self.analyze_tile_state(target_x, target_y)
 
                 if btn_chiem_pos:
-                    dispatch_status = self.dispatch_troops(btn_chiem_pos)
+                    dispatch_status = self.dispatch_troops(btn_chiem_pos, tier_key=candidate.get("tier_key", ""))
                     dispatch_result = dispatch_status if isinstance(dispatch_status, dict) else {
                         "status": "SUCCESS" if dispatch_status is True else str(dispatch_status),
                         "max_travel_time": 0,
