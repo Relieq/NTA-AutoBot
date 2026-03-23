@@ -1193,6 +1193,7 @@ class CombatManager:
             if not selected_travel_times:
                 print("   [ERR] Không có checkbox rút quân hợp lệ (OCR thời gian thất bại toàn bộ).")
                 self.device.tap(2, 2)
+                self.device.tap(cx, cy)
                 return {"status": "FAILED", "max_travel_time": 0, "selected_count": 0}
 
             max_travel_time = max(selected_travel_times)

@@ -101,6 +101,7 @@ class MapManager:
         text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
         text = text.replace("đ", "d")
         text = text.replace("v", "n")
+        text = text.replace("j", "i")
         text = re.sub(r"[^a-z0-9\s]", " ", text)
         text = re.sub(r"\s+", " ", text).strip()
         return text

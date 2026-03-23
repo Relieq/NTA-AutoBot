@@ -94,6 +94,20 @@ Trong `modules/combat.py`:
 - Cấu hình blacklist độ khó theo từng tier/level nằm trong `config/combat_difficulty_blacklist.json`
 - Màu viền xanh map (`lower_green`/`upper_green`) để tìm border target
 
+### Runtime terminal
+- Cấu hình tự clear terminal định kỳ nằm trong `config/runtime.json`
+- `terminal_auto_clear_enabled`: bật/tắt tự clear terminal
+- `terminal_auto_clear_interval_seconds`: chu kỳ clear (giây), tối thiểu 10 giây
+- `runtime.json` được đọc bằng `utf-8-sig` để tương thích file có BOM (thường gặp khi lưu bằng PowerShell/Windows tools)
+
+### Runtime debug cleanup
+- `debug_auto_cleanup_enabled`: bật/tắt tự dọn ảnh debug
+- `debug_auto_cleanup_interval_seconds`: chu kỳ quét dọn (giây)
+- `debug_auto_cleanup_keep_hours`: giữ lại ảnh mới hơn số giờ này
+- `debug_auto_cleanup_root_dir`: thư mục gốc cần dọn (mặc định `debug_img`)
+- `debug_auto_cleanup_max_delete_per_cycle`: giới hạn số file xóa mỗi chu kỳ
+- `debug_auto_cleanup_extensions`: chỉ xóa các đuôi ảnh trong danh sách
+
 Trong `core/map_core.py`:
 - Target `RESOURCE` đã có độ khó sẽ được ưu tiên theo thứ tự tăng dần:
   `Dễ X` -> `Nhập môn X` -> `Thường X` -> `Tăng bậc X` -> `Khó X` -> `Địa ngục X`.

@@ -445,9 +445,9 @@
             "last_updated": 1774211434
         },
         "493,140": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 1",
-            "last_updated": 1774211450
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774277311
         },
         "493,139": {
             "state": "RESOURCE",
@@ -470,9 +470,9 @@
             "last_updated": 1774212973
         },
         "493,135": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 1",
-            "last_updated": 1774213389
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774276555
         },
         "493,137": {
             "state": "OWNED",
@@ -505,19 +505,19 @@
             "last_updated": 1774214672
         },
         "483,135": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 2",
-            "last_updated": 1774268263
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774279119
         },
         "484,134": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 2",
-            "last_updated": 1774268280
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774283102
         },
         "485,133": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 2",
-            "last_updated": 1774269136
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774284330
         },
         "487,131": {
             "state": "RESOURCE",
@@ -525,9 +525,9 @@
             "last_updated": 1774270129
         },
         "488,130": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 2",
-            "last_updated": 1774270146
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774285739
         },
         "489,131": {
             "state": "OWNED",
@@ -535,14 +535,14 @@
             "last_updated": 1774270257
         },
         "489,130": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 2",
-            "last_updated": 1774271120
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774287237
         },
         "490,131": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 2",
-            "last_updated": 1774271139
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774289555
         },
         "488,144": {
             "state": "RESOURCE",
@@ -550,9 +550,9 @@
             "last_updated": 1774271906
         },
         "489,145": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 2",
-            "last_updated": 1774271923
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774288418
         },
         "490,144": {
             "state": "RESOURCE",
@@ -563,6 +563,116 @@
             "state": "OBSTACLE",
             "difficulty": "Bậc 1 Lang",
             "last_updated": 1774272829
+        },
+        "492,133": {
+            "state": "OBSTACLE",
+            "difficulty": "",
+            "last_updated": 1774276477
+        },
+        "493,134": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 8",
+            "last_updated": 1774276494
+        },
+        "494,135": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774290717
+        },
+        "493,141": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774278689
+        },
+        "494,140": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774291872
+        },
+        "483,134": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774293075
+        },
+        "482,135": {
+            "state": "OBSTACLE",
+            "difficulty": "Địa ngục 0",
+            "last_updated": 1774280888
+        },
+        "484,133": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774284237
+        },
+        "485,132": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774285656
+        },
+        "487,130": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774287160
+        },
+        "488,129": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774287177
+        },
+        "489,129": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774288315
+        },
+        "490,130": {
+            "state": "OBSTACLE",
+            "difficulty": "Địa ngục 0",
+            "last_updated": 1774288332
+        },
+        "488,145": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774289440
+        },
+        "489,146": {
+            "state": "OBSTACLE",
+            "difficulty": "Khó 1",
+            "last_updated": 1774289458
+        },
+        "490,145": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774289475
+        },
+        "491,131": {
+            "state": "OBSTACLE",
+            "difficulty": "Địa ngục 0",
+            "last_updated": 1774290635
+        },
+        "494,134": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1774291787
+        },
+        "495,135": {
+            "state": "OBSTACLE",
+            "difficulty": "",
+            "last_updated": 1774291804
+        },
+        "494,139": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 7",
+            "last_updated": 1774292953
+        },
+        "494,141": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774292972
+        },
+        "495,140": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774292989
         }
     }
 }

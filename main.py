@@ -1,5 +1,7 @@
 from core.device import DeviceManager
+from core.debug_cleaner import DebugImageCleaner
 from core.map_core import MapManager
+from core.terminal import TerminalCleaner
 from core.vision import VisionManager
 from modules.builder import BuilderManager
 from modules.captcha import CaptchaSolver
@@ -18,6 +20,8 @@ def main():
 
     device = DeviceManager()
     vision = VisionManager()
+    terminal_cleaner = TerminalCleaner()
+    debug_cleaner = DebugImageCleaner()
 
     # Khởi tạo CaptchaSolver (Load model ONNX vào RAM 1 lần duy nhất)
     print("--- ĐANG TẢI MODEL AI GIẢI CAPTCHA ---")
@@ -48,13 +52,15 @@ def main():
 
     # === VÒNG LẶP VÔ TẬN (GAME LOOP) ===
     while True:
+        now = time.time()
+        terminal_cleaner.maybe_clear(now)
+        debug_cleaner.maybe_cleanup(now)
         print("\n--- CHECKING TASKS ---")
 
         # =========================================================
         # ƯU TIÊN 1: CHIẾN ĐẤU (DIG) - LOGIC PHỨC TẠP NHẤT
         # =========================================================
 
-        now = time.time()
 
         # Case 1: Đang rảnh và hết thời gian hồi chiêu -> Đi tìm đất
         if bot_state["combat_status"] == "IDLE":

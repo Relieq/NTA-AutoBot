@@ -1,0 +1,16 @@
+﻿{
+  "terminal_auto_clear_enabled": true,
+  "terminal_auto_clear_interval_seconds": 300,
+  "debug_auto_cleanup_enabled": true,
+  "debug_auto_cleanup_interval_seconds": 300,
+  "debug_auto_cleanup_keep_hours": 24,
+  "debug_auto_cleanup_root_dir": "debug_img",
+  "debug_auto_cleanup_max_delete_per_cycle": 500,
+  "debug_auto_cleanup_extensions": [
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".bmp",
+    ".webp"
+  ]
+}
