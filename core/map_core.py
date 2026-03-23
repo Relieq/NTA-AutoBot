@@ -33,6 +33,7 @@ class MapManager:
 
         self.main_city = (300, 300)
         self.grid = {}  # Dictionary lưu trữ: {"x,y": {"state": "...", "diff": "..."}}
+        self.schema_version = 2
 
         # Các trạng thái có thể có:
         # OWNED (Đất mình), RESOURCE (Tài nguyên), ENEMY (Kẻ địch), OBSTACLE (Vật cản)
@@ -42,7 +43,7 @@ class MapManager:
         if os.path.exists(self.map_file):
             use_old = input(">>> Tìm thấy bản đồ cũ (map_data.json). Bạn có muốn sử dụng tiếp? (y/n): ").strip().lower()
             if use_old == 'y':
-                with open(self.map_file, 'r', encoding='utf-8') as f:
+                with open(self.map_file, 'r', encoding='utf-8-sig') as f:
                     data = json.load(f)
                     # Load riêng Thành Chính và Grid
                     self.main_city = tuple(data.get("main_city", [300, 300]))
@@ -75,20 +76,62 @@ class MapManager:
 
     def save_map(self):
         data = {
+            "schema_version": self.schema_version,
             "main_city": list(self.main_city),
             "grid": self.grid
         }
         with open(self.map_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
 
+    def _build_tile_cache_fields(self, x, y, difficulty):
+        parsed = self.parse_difficulty(difficulty)
+        dist = abs(int(x) - int(self.main_city[0])) + abs(int(y) - int(self.main_city[1]))
+        return {
+            "distance_to_city": dist,
+            "difficulty_normalized": parsed["normalized"],
+            "difficulty_valid": parsed["valid"],
+            "difficulty_tier_key": parsed["tier_key"],
+            "difficulty_level": parsed["level"],
+            "difficulty_rank": parsed["rank"],
+            "difficulty_label": parsed["label"],
+        }
+
+    def _migrate_grid_cache(self):
+        changed = False
+        for key, data in self.grid.items():
+            try:
+                x, y = map(int, key.split(","))
+            except Exception:
+                continue
+
+            if not isinstance(data, dict):
+                continue
+
+            difficulty = data.get("difficulty", "")
+            cache = self._build_tile_cache_fields(x, y, difficulty)
+            for field, value in cache.items():
+                if data.get(field) != value:
+                    data[field] = value
+                    changed = True
+        return changed
+
+    def migrate_grid_cache(self, save_if_changed=True):
+        """Migrate cache metadata cho toàn bộ grid. Dùng cho script chạy một lần."""
+        changed = self._migrate_grid_cache()
+        if changed and save_if_changed:
+            self.save_map()
+        return changed
+
     def update_tile(self, x, y, state, difficulty=""):
         """Cập nhật trạng thái một ô đất"""
         key = f"{x},{y}"
-        self.grid[key] = {
+        tile_data = {
             "state": state,
             "difficulty": difficulty,
             "last_updated": int(time.time())
         }
+        tile_data.update(self._build_tile_cache_fields(x, y, difficulty))
+        self.grid[key] = tile_data
         self.save_map()
 
     @staticmethod
@@ -192,9 +235,8 @@ class MapManager:
 
             # Ưu tiên RESOURCE đã biết độ khó (theo tier + level), sau đó RESOURCE mơ hồ, cuối cùng UNKNOWN.
             if state == "RESOURCE":
-                parsed = self.parse_difficulty(tile.get("difficulty", ""))
-                if parsed["valid"]:
-                    return 0, parsed["tier_order"], parsed["level"], tx, ty
+                if tile.get("difficulty_valid", False):
+                    return 0, int(tile.get("difficulty_rank", 999999)), int(tile.get("distance_to_city", 999999)), tx, ty
                 return 1, 999, 999, tx, ty
 
             return 2, 999, 999, tx, ty

@@ -938,6 +938,11 @@ class CombatManager:
         candidates = []
         need_ocr = []
         cache_hits = 0
+        city_x, city_y = getattr(self.map, "main_city", (300, 300))
+
+        def distance_to_city(tx, ty):
+            # Dùng Manhattan distance để ưu tiên ô gần thành trên lưới tọa độ map.
+            return abs(int(tx) - int(city_x)) + abs(int(ty) - int(city_y))
 
         for target_x, target_y in targets:
             tile = self.map.get_tile_info(target_x, target_y)
@@ -945,16 +950,32 @@ class CombatManager:
 
             # Tile đã có trong map và còn là RESOURCE => dùng cache, không OCR lại.
             if state == "RESOURCE":
-                parsed = self.map.parse_difficulty(tile.get("difficulty", ""))
-                if parsed["valid"] and self._is_blacklisted_difficulty(parsed["tier_key"], parsed["level"]):
+                valid = bool(tile.get("difficulty_valid", False))
+                tier_key = tile.get("difficulty_tier_key", "") if valid else ""
+                level = int(tile.get("difficulty_level", 999)) if valid else 999
+                rank = int(tile.get("difficulty_rank", 999999)) if valid else 999999
+                dist = int(tile.get("distance_to_city", distance_to_city(target_x, target_y)))
+                label = tile.get("difficulty_label", "") if valid else ""
+
+                # Fallback cho dữ liệu cũ chưa migrate cache.
+                if not valid and tile.get("difficulty", ""):
+                    parsed = self.map.parse_difficulty(tile.get("difficulty", ""))
+                    valid = parsed["valid"]
+                    tier_key = parsed["tier_key"] if valid else ""
+                    level = parsed["level"] if valid else 999
+                    rank = parsed["rank"] if valid else 999999
+                    label = parsed["label"] if valid else ""
+
+                if valid and self._is_blacklisted_difficulty(tier_key, level):
                     continue
-                diff_label = parsed["label"] if parsed["valid"] else tile.get("difficulty", "") or "UNKNOWN"
+                diff_label = label if valid else tile.get("difficulty", "") or "UNKNOWN"
                 candidates.append(
                     {
                         "x": target_x,
                         "y": target_y,
-                        "rank": parsed["rank"] if parsed["valid"] else 999999,
-                        "tier_key": parsed["tier_key"] if parsed["valid"] else "",
+                        "rank": rank,
+                        "distance_to_city": dist,
+                        "tier_key": tier_key if valid else "",
                         "label": diff_label,
                     }
                 )
@@ -973,17 +994,32 @@ class CombatManager:
 
             if btn_chiem_pos:
                 tile = self.map.get_tile_info(target_x, target_y)
-                parsed = self.map.parse_difficulty(tile.get("difficulty", ""))
-                if parsed["valid"] and self._is_blacklisted_difficulty(parsed["tier_key"], parsed["level"]):
+                valid = bool(tile.get("difficulty_valid", False))
+                tier_key = tile.get("difficulty_tier_key", "") if valid else ""
+                level = int(tile.get("difficulty_level", 999)) if valid else 999
+                rank = int(tile.get("difficulty_rank", 999999)) if valid else 999999
+                dist = int(tile.get("distance_to_city", distance_to_city(target_x, target_y)))
+                label = tile.get("difficulty_label", "") if valid else ""
+
+                if not valid and tile.get("difficulty", ""):
+                    parsed = self.map.parse_difficulty(tile.get("difficulty", ""))
+                    valid = parsed["valid"]
+                    tier_key = parsed["tier_key"] if valid else ""
+                    level = parsed["level"] if valid else 999
+                    rank = parsed["rank"] if valid else 999999
+                    label = parsed["label"] if valid else ""
+
+                if valid and self._is_blacklisted_difficulty(tier_key, level):
                     self._close_tile_popup()
                     continue
-                diff_label = parsed["label"] if parsed["valid"] else tile.get("difficulty", "") or "UNKNOWN"
+                diff_label = label if valid else tile.get("difficulty", "") or "UNKNOWN"
                 candidates.append(
                     {
                         "x": target_x,
                         "y": target_y,
-                        "rank": parsed["rank"] if parsed["valid"] else 999999,
-                        "tier_key": parsed["tier_key"] if parsed["valid"] else "",
+                        "rank": rank,
+                        "distance_to_city": dist,
+                        "tier_key": tier_key if valid else "",
                         "label": diff_label,
                     }
                 )
@@ -992,7 +1028,8 @@ class CombatManager:
 
         print(f"   [COMBAT] Reuse map cache: {cache_hits} ô | OCR mới: {scanned} ô")
 
-        candidates.sort(key=lambda c: (c["rank"], c["x"], c["y"]))
+        # Ưu tiên theo độ khó trước, nếu cùng độ khó thì chọn ô gần thành chính hơn.
+        candidates.sort(key=lambda c: (c["rank"], c.get("distance_to_city", 999999), c["x"], c["y"]))
         return candidates
 
     def scan_and_dig(self):
@@ -1009,8 +1046,11 @@ class CombatManager:
         preview = []
         for tx, ty in targets[:8]:
             tile = self.map.get_tile_info(tx, ty)
-            parsed = self.map.parse_difficulty(tile.get("difficulty", ""))
-            diff_label = parsed["label"] if parsed["valid"] else tile.get("difficulty", "?") or "UNKNOWN"
+            if tile.get("difficulty_valid", False):
+                diff_label = tile.get("difficulty_label", "") or tile.get("difficulty", "?") or "UNKNOWN"
+            else:
+                parsed = self.map.parse_difficulty(tile.get("difficulty", ""))
+                diff_label = parsed["label"] if parsed["valid"] else tile.get("difficulty", "?") or "UNKNOWN"
             preview.append(f"({tx},{ty})={diff_label}")
         if preview:
             print("   [COMBAT] Ưu tiên target: " + " | ".join(preview))
@@ -1023,7 +1063,7 @@ class CombatManager:
             print("   [COMBAT] Không có target hợp lệ sau khi trinh sát.")
             return {"status": "NO_TARGET"}
 
-        top_preview = [f"({c['x']},{c['y']})={c['label']}" for c in candidates[:8]]
+        top_preview = [f"({c['x']},{c['y']})={c['label']},d={c.get('distance_to_city', '?')}" for c in candidates[:8]]
         print("   [COMBAT] Candidate ưu tiên (cache + OCR): " + " | ".join(top_preview))
 
         # 3. Pha tấn công: duyệt từ dễ đến khó theo rank đã parse.

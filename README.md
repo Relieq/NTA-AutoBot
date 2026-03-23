@@ -57,6 +57,20 @@ python main.py
 3. Tạo `BuilderManager`, `DailyTaskManager`, `SceneManager`, `CombatManager`
 4. Chạy vòng lặp vô tận theo thứ tự ưu tiên
 
+Lưu ý: bot **không tự migrate** cache metadata của `map_data.json` khi startup để tránh duyệt lại toàn bộ map mỗi lần chạy.
+
+Nếu bạn vừa nâng schema/cache map, chạy tool migrate một lần:
+
+```powershell
+python migrate_map_cache.py
+```
+
+Kiểm tra trước (không ghi file):
+
+```powershell
+python migrate_map_cache.py --dry-run
+```
+
 ## 6) Cấu hình quan trọng
 ### Build order
 Sửa `config/build_order.py` trong `BUILD_SEQUENCE`:

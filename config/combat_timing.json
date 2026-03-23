@@ -4,8 +4,8 @@
   "battle_duration_seconds": {
     "de": 20,
     "nhap_mon": 80,
-    "thuong": 150,
-    "tang_bac": 240,
+    "thuong": 200,
+    "tang_bac": 250,
     "kho": 420,
     "dia_nguc": 480
   }
