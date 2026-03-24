@@ -258,16 +258,16 @@
             "difficulty_label": ""
         },
         "489,135": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 3",
-            "last_updated": 1774130346,
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774297924,
             "distance_to_city": 3,
-            "difficulty_normalized": "thuong 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 3,
-            "difficulty_rank": 2003,
-            "difficulty_label": "Thường 3"
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         },
         "489,140": {
             "state": "OWNED",
@@ -342,16 +342,16 @@
             "difficulty_label": ""
         },
         "486,139": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 3",
-            "last_updated": 1774153305,
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774298509,
             "distance_to_city": 4,
-            "difficulty_normalized": "thuong 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 3,
-            "difficulty_rank": 2003,
-            "difficulty_label": "Thường 3"
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         },
         "487,140": {
             "state": "OWNED",
@@ -390,16 +390,16 @@
             "difficulty_label": ""
         },
         "491,139": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 3",
-            "last_updated": 1774158571,
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774299833,
             "distance_to_city": 5,
-            "difficulty_normalized": "thuong 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 3,
-            "difficulty_rank": 2003,
-            "difficulty_label": "Thường 3"
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         },
         "491,136": {
             "state": "OWNED",
@@ -630,16 +630,16 @@
             "difficulty_label": "Khó 0"
         },
         "491,141": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 3",
-            "last_updated": 1774182148,
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774303962,
             "distance_to_city": 7,
-            "difficulty_normalized": "thuong 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 3,
-            "difficulty_rank": 2003,
-            "difficulty_label": "Thường 3"
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         },
         "485,134": {
             "state": "OWNED",
@@ -942,16 +942,16 @@
             "difficulty_label": ""
         },
         "485,139": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 3",
-            "last_updated": 1774192016,
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774299144,
             "distance_to_city": 5,
-            "difficulty_normalized": "thuong 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 3,
-            "difficulty_rank": 2003,
-            "difficulty_label": "Thường 3"
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         },
         "486,140": {
             "state": "OWNED",
@@ -978,16 +978,16 @@
             "difficulty_label": ""
         },
         "485,140": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 3",
-            "last_updated": 1774193617,
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774300475,
             "distance_to_city": 6,
-            "difficulty_normalized": "thuong 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 3,
-            "difficulty_rank": 2003,
-            "difficulty_label": "Thường 3"
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         },
         "486,141": {
             "state": "RESOURCE",
@@ -1002,16 +1002,16 @@
             "difficulty_label": "Thường 6"
         },
         "487,142": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 3",
-            "last_updated": 1774194051,
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774303190,
             "distance_to_city": 6,
-            "difficulty_normalized": "thuong 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 3,
-            "difficulty_rank": 2003,
-            "difficulty_label": "Thường 3"
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         },
         "491,140": {
             "state": "OWNED",
@@ -1410,16 +1410,16 @@
             "difficulty_label": ""
         },
         "483,134": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 3",
-            "last_updated": 1774293075,
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774304732,
             "distance_to_city": 8,
-            "difficulty_normalized": "thuong 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 3,
-            "difficulty_rank": 2003,
-            "difficulty_label": "Thường 3"
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         },
         "482,135": {
             "state": "OBSTACLE",
@@ -1434,16 +1434,16 @@
             "difficulty_label": "Địa ngục 0"
         },
         "484,133": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 3",
-            "last_updated": 1774284237,
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774306059,
             "distance_to_city": 8,
-            "difficulty_normalized": "thuong 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 3,
-            "difficulty_rank": 2003,
-            "difficulty_label": "Thường 3"
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         },
         "485,132": {
             "state": "RESOURCE",
@@ -1482,16 +1482,16 @@
             "difficulty_label": "Thường 9"
         },
         "489,129": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 3",
-            "last_updated": 1774288315,
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774311174,
             "distance_to_city": 9,
-            "difficulty_normalized": "thuong 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 3,
-            "difficulty_rank": 2003,
-            "difficulty_label": "Thường 3"
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         },
         "490,130": {
             "state": "OBSTACLE",
@@ -1554,16 +1554,16 @@
             "difficulty_label": "Địa ngục 0"
         },
         "494,134": {
-            "state": "RESOURCE",
-            "difficulty": "Thường 3",
-            "last_updated": 1774291787,
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774312526,
             "distance_to_city": 9,
-            "difficulty_normalized": "thuong 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 3,
-            "difficulty_rank": 2003,
-            "difficulty_label": "Thường 3"
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         },
         "495,135": {
             "state": "OBSTACLE",
@@ -1612,6 +1612,378 @@
             "difficulty_level": 9,
             "difficulty_rank": 2009,
             "difficulty_label": "Thường 9"
+        },
+        "484,140": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 7",
+            "last_updated": 1774301170,
+            "distance_to_city": 7,
+            "difficulty_normalized": "thuong 7",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 7,
+            "difficulty_rank": 2007,
+            "difficulty_label": "Thường 7"
+        },
+        "485,141": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774301274,
+            "distance_to_city": 7,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "484,141": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774302087,
+            "distance_to_city": 8,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "485,142": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 8",
+            "last_updated": 1774302000,
+            "distance_to_city": 8,
+            "difficulty_normalized": "thuong 8",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 8,
+            "difficulty_rank": 2008,
+            "difficulty_label": "Thường 8"
+        },
+        "483,141": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774307375,
+            "distance_to_city": 9,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "484,142": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774303121,
+            "distance_to_city": 9,
+            "difficulty_normalized": "thuong 9",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 9,
+            "difficulty_rank": 2009,
+            "difficulty_label": "Thường 9"
+        },
+        "486,142": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 7",
+            "last_updated": 1774303856,
+            "distance_to_city": 7,
+            "difficulty_normalized": "thuong 7",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 7,
+            "difficulty_rank": 2007,
+            "difficulty_label": "Thường 7"
+        },
+        "487,143": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774303874,
+            "distance_to_city": 7,
+            "difficulty_normalized": "thuong 9",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 9,
+            "difficulty_rank": 2009,
+            "difficulty_label": "Thường 9"
+        },
+        "491,142": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774304640,
+            "distance_to_city": 8,
+            "difficulty_normalized": "thuong 9",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 9,
+            "difficulty_rank": 2009,
+            "difficulty_label": "Thường 9"
+        },
+        "482,134": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774317660,
+            "distance_to_city": 9,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "483,133": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774305973,
+            "distance_to_city": 9,
+            "difficulty_normalized": "thuong 9",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 9,
+            "difficulty_rank": 2009,
+            "difficulty_label": "Thường 9"
+        },
+        "484,132": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774325275,
+            "distance_to_city": 9,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "482,141": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774331680,
+            "distance_to_city": 10,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "483,140": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774308703,
+            "distance_to_city": 8,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "482,140": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774309825,
+            "distance_to_city": 9,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "483,139": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 7",
+            "last_updated": 1774309735,
+            "distance_to_city": 7,
+            "difficulty_normalized": "thuong 7",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 7,
+            "difficulty_rank": 2007,
+            "difficulty_label": "Thường 7"
+        },
+        "481,140": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774326683,
+            "distance_to_city": 10,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "482,139": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 8",
+            "last_updated": 1774311080,
+            "distance_to_city": 8,
+            "difficulty_normalized": "thuong 8",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 8,
+            "difficulty_rank": 2008,
+            "difficulty_label": "Thường 8"
+        },
+        "489,128": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774312415,
+            "distance_to_city": 10,
+            "difficulty_normalized": "thuong 9",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 9,
+            "difficulty_rank": 2009,
+            "difficulty_label": "Thường 9"
+        },
+        "490,129": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774312432,
+            "distance_to_city": 10,
+            "difficulty_normalized": "thuong 9",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 9,
+            "difficulty_rank": 2009,
+            "difficulty_label": "Thường 9"
+        },
+        "494,133": {
+            "state": "OBSTACLE",
+            "difficulty": "",
+            "last_updated": 1774317557,
+            "distance_to_city": 10,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "495,134": {
+            "state": "OBSTACLE",
+            "difficulty": "",
+            "last_updated": 1774317574,
+            "distance_to_city": 10,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "481,134": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 5",
+            "last_updated": 1774325052,
+            "distance_to_city": 10,
+            "difficulty_normalized": "thuong 5",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 5,
+            "difficulty_rank": 2005,
+            "difficulty_label": "Thường 5"
+        },
+        "482,133": {
+            "state": "OBSTACLE",
+            "difficulty": "Bậc 2 Láng",
+            "last_updated": 1774325075,
+            "distance_to_city": 10,
+            "difficulty_normalized": "bac 2 lang",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 2,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "483,132": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 5",
+            "last_updated": 1774326580,
+            "distance_to_city": 10,
+            "difficulty_normalized": "thuong 5",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 5,
+            "difficulty_rank": 2005,
+            "difficulty_label": "Thường 5"
+        },
+        "484,131": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774326599,
+            "distance_to_city": 10,
+            "difficulty_normalized": "thuong 9",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 9,
+            "difficulty_rank": 2009,
+            "difficulty_label": "Thường 9"
+        },
+        "480,140": {
+            "state": "OBSTACLE",
+            "difficulty": "Khó 1",
+            "last_updated": 1774327262,
+            "distance_to_city": 11,
+            "difficulty_normalized": "kho 1",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "kho",
+            "difficulty_level": 1,
+            "difficulty_rank": 4001,
+            "difficulty_label": "Khó 1"
+        },
+        "481,139": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774327281,
+            "distance_to_city": 9,
+            "difficulty_normalized": "thuong 9",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 9,
+            "difficulty_rank": 2009,
+            "difficulty_label": "Thường 9"
+        },
+        "481,141": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 9",
+            "last_updated": 1774327302,
+            "distance_to_city": 11,
+            "difficulty_normalized": "thuong 9",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 9,
+            "difficulty_rank": 2009,
+            "difficulty_label": "Thường 9"
+        },
+        "482,142": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 5",
+            "last_updated": 1774332835,
+            "distance_to_city": 11,
+            "difficulty_normalized": "thuong 5",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 5,
+            "difficulty_rank": 2005,
+            "difficulty_label": "Thường 5"
+        },
+        "483,142": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1774333365,
+            "distance_to_city": 10,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
         }
     }
 }

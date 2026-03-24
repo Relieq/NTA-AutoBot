@@ -146,28 +146,38 @@ def main():
         # Theo logic mới: Build có thể chạy song song khi đang chờ combat/retreat
         if time.time() >= bot_state["builder_free_time"]:
             if bot_state["build_index"] < len(BUILD_SEQUENCE):
-                task = BUILD_SEQUENCE[bot_state["build_index"]]
-
                 # Vào thành
                 scene.go_to_city()
 
-                # Thực hiện xây
-                target = task["target_lv"]
-                name = task["name"]
-                display = task["type_name"]
+                # Chỉ rời thành khi đã tìm được tác vụ build/upgrade thực sự hoặc gặp lỗi.
+                while bot_state["build_index"] < len(BUILD_SEQUENCE):
+                    task = BUILD_SEQUENCE[bot_state["build_index"]]
 
-                if target == 1:
-                    success, b_time = builder.build_new_structure(display)
-                else:
-                    success, b_time = builder.upgrade_existing_structure(name, target, display)
+                    target = task["target_lv"]
+                    name = task["name"]
+                    display = task["type_name"]
 
-                if success:
-                    bot_state["build_index"] += 1
-                    wait_time = b_time if b_time else 300
-                    bot_state["builder_free_time"] = time.time() + wait_time
-                else:
-                    # Fail thì thử lại sau 60s
+                    if target == 1:
+                        result = builder.build_new_structure(display)
+                    else:
+                        result = builder.upgrade_existing_structure(name, target, display)
+
+                    status = result.get("status", "FAILED") if isinstance(result, dict) else "FAILED"
+                    wait_time = result.get("wait_time") if isinstance(result, dict) else None
+
+                    if status == "SUCCESS":
+                        bot_state["build_index"] += 1
+                        bot_state["builder_free_time"] = time.time() + (wait_time if wait_time else 300)
+                        break
+
+                    if status == "SKIPPED_ALREADY_DONE":
+                        bot_state["build_index"] += 1
+                        # Không set cooldown giả; tiếp tục ngay task kế tiếp trong thành.
+                        continue
+
+                    # FAILED/FATAL thì lùi 60s rồi thử lại từ task hiện tại.
                     bot_state["builder_free_time"] = time.time() + 60
+                    break
 
                 # Xây xong ra map đứng cho tiện combat
                 scene.leave_the_city()

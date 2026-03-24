@@ -353,7 +353,7 @@ class BuilderManager:
         x1 = int(w * 0.481) - 1
         x2 = int(w * 0.544) + 1
         y1 = int(h * 0.741) - 1
-        y2 = int(h * 0.771) + 1
+        y2 = int(h * 0.791) + 1
 
         return self._ocr_time_region(screen, x1, y1, x2, y2, "upgrade", save_debug)
 
@@ -411,26 +411,55 @@ class BuilderManager:
         return self._parse_time_string(all_text)
 
     def _parse_time_string(self, text):
-        text = text.strip().replace(" ", "")
+        raw_text = str(text or "").strip()
+        compact = raw_text.replace(" ", "")
+        if not compact:
+            print("   [TIME] Không thể parse thời gian: OCR rỗng")
+            return None
 
-        match = re.search(r'(\d{1,2}):(\d{1,2}):(\d{2})', text)
-        if match:
-            hours = int(match.group(1))
-            minutes = int(match.group(2))
-            seconds = int(match.group(3))
-            total_seconds = hours * 3600 + minutes * 60 + seconds
-            print(f"   [TIME] Parsed: {hours}h {minutes}m {seconds}s = {total_seconds} giây")
+        # Sửa các ký tự OCR hay nhầm trong vùng thời gian.
+        trans = str.maketrans({
+            "O": "0", "o": "0",
+            "I": "1", "l": "1", "|": "1",
+            ",": ":", ".": ":", "-": ":", ";": ":", "_": ":",
+        })
+        normalized = compact.translate(trans)
+        normalized = re.sub(r":+", ":", normalized).strip(":")
+
+        def _log_and_return(total_seconds, detail):
+            print(f"   [TIME] Parsed ({detail}): {total_seconds} giây | raw='{raw_text}' | norm='{normalized}'")
             return total_seconds
 
-        match = re.search(r'(\d{1,2}):(\d{2})', text)
-        if match:
-            minutes = int(match.group(1))
-            seconds = int(match.group(2))
-            total_seconds = minutes * 60 + seconds
-            print(f"   [TIME] Parsed: {minutes}m {seconds}s = {total_seconds} giây")
-            return total_seconds
+        # Ưu tiên format HH:MM:SS (hoặc MM:SS nếu OCR mất 1 cụm).
+        m3 = re.search(r'(\d{1,2}):(\d{1,2}):(\d{1,2})', normalized)
+        if m3:
+            a, b, c = int(m3.group(1)), int(m3.group(2)), int(m3.group(3))
+            if a <= 23 and b <= 59 and c <= 59:
+                return _log_and_return(a * 3600 + b * 60 + c, f"h:m:s={a}:{b}:{c}")
+            if a <= 59 and b <= 59 and c == 0:
+                # OCR hay thêm cụm "0" ở cuối: ví dụ 09-09.0 -> hiểu là 09:09
+                return _log_and_return(a * 60 + b, f"m:s (drop tail 0)={a}:{b}")
 
-        print(f"   [TIME] Không thể parse thời gian từ: '{text}'")
+        m2 = re.search(r'(\d{1,2}):(\d{1,2})', normalized)
+        if m2:
+            mm, ss = int(m2.group(1)), int(m2.group(2))
+            if mm <= 59 and ss <= 59:
+                return _log_and_return(mm * 60 + ss, f"m:s={mm}:{ss}")
+
+        # Fallback cuối: tách theo cụm số để cứu các trường hợp OCR bể định dạng.
+        nums = [int(n) for n in re.findall(r'\d{1,2}', normalized)]
+        if len(nums) >= 3:
+            a, b, c = nums[0], nums[1], nums[2]
+            if a <= 23 and b <= 59 and c <= 59:
+                return _log_and_return(a * 3600 + b * 60 + c, f"fallback h:m:s={a}:{b}:{c}")
+            if a <= 59 and b <= 59:
+                return _log_and_return(a * 60 + b, f"fallback m:s={a}:{b}")
+        elif len(nums) >= 2:
+            mm, ss = nums[0], nums[1]
+            if mm <= 59 and ss <= 59:
+                return _log_and_return(mm * 60 + ss, f"fallback m:s={mm}:{ss}")
+
+        print(f"   [TIME] Không thể parse thời gian từ: raw='{raw_text}' | norm='{normalized}'")
         return None
 
     def open_info_tab(self):
@@ -441,11 +470,18 @@ class BuilderManager:
         time.sleep(1)
         return True
 
+    def _result(self, status, wait_time=None):
+        return {"status": status, "wait_time": wait_time}
+
     # --- HÀM 2: Logic Xây Mới (Lv 1) ---
     def build_new_structure(self, building_name_display):
         """
         Xây mới công trình.
-        Trả về: (success: bool, build_time: int hoặc None)
+        Trả về dict:
+            - SUCCESS: đã bấm xây thành công, wait_time là thời gian xây (nếu OCR được)
+            - SKIPPED_ALREADY_DONE: công trình không còn trong danh sách build (xem như đã xây)
+            - FAILED: lỗi thao tác/thiếu tài nguyên
+            - FATAL: lỗi nghiêm trọng (captcha không giải được)
         """
         print(f"   [ACTION] Xây mới: {building_name_display}")
         max_retries_per_action = 2
@@ -455,7 +491,7 @@ class BuilderManager:
             btn_bua = self.vision.find_template(self.device.take_screenshot(), self._get_path("btn_xay_dung_menu.png"))
             if not btn_bua:
                 print("   [-] Không thấy nút Menu Xây dựng.")
-                return False, None
+                return self._result("FAILED")
 
             self.device.tap(btn_bua[0], btn_bua[1])
             time.sleep(2)  # Chờ menu trượt lên
@@ -481,7 +517,7 @@ class BuilderManager:
                     time.sleep(1.5)
                     continue  # Vòng lặp sẽ chạy lại việc tìm búa -> xây
                 elif status == "FATAL":
-                    return False, None
+                    return self._result("FATAL")
 
                 # --- KIỂM TRA HẬU QUẢ (Post-Action Check) ---
                 screen_after = self.device.take_screenshot()
@@ -491,25 +527,29 @@ class BuilderManager:
                     print("   [FAIL] Nút Xây vẫn còn. (Nguyên nhân: Thiếu tài nguyên).")
                     self.device.tap(1, 1)
                     time.sleep(1)
-                    return False, None
+                    return self._result("FAILED")
                 else:
                     print("   [SUCCESS] Xây thành công (Popup đã đóng).")
-                    return True, build_time
+                    return self._result("SUCCESS", build_time)
             else:
                 if has_list:
                     print(f"   [INFO] Không thấy '{building_name_display}' trong danh sách build. Xem như đã xây.")
                 else:
                     print("   [-] Không thấy nút Xây nào trong danh sách. Có thể đã xây hết.")
                 self.device.tap(1, 1)
-                return True, 1
+                return self._result("SKIPPED_ALREADY_DONE")
 
-        return False, None
+        return self._result("FAILED")
 
     # --- HÀM 3: Logic Nâng Cấp (Lv > 1) ---
     def upgrade_existing_structure(self, img_name, target_lv, display_name):
         """
         Nâng cấp công trình đã có.
-        Trả về: (success: bool, upgrade_time: int hoặc None)
+        Trả về dict:
+            - SUCCESS: đã bấm nâng cấp thành công, wait_time là thời gian nâng cấp (nếu OCR được)
+            - SKIPPED_ALREADY_DONE: level hiện tại đã đạt mục tiêu
+            - FAILED: lỗi thao tác/không tìm thấy nút
+            - FATAL: lỗi nghiêm trọng (captcha không giải được)
         """
         print(f"   [CHECK] Kiểm tra: {display_name} (Mục tiêu: Lv {target_lv})")
 
@@ -521,7 +561,7 @@ class BuilderManager:
 
         if not pos:
             print(f"   [-] Không tìm thấy {display_name} trên bản đồ. (Có thể chưa xây?)")
-            return False, None
+            return self._result("FAILED")
 
         max_retries_per_action = 2
 
@@ -541,7 +581,7 @@ class BuilderManager:
                 if current_lv >= target_lv:
                     print(f"   >>> Đã đạt yêu cầu (Lv {current_lv} >= {target_lv}). BỎ QUA.")
                     self.device.tap(1, 1)
-                    return True, 1
+                    return self._result("SKIPPED_ALREADY_DONE")
             else:
                 print("   [WARN] Không đọc được level. Giả định cần nâng cấp.")
 
@@ -566,7 +606,7 @@ class BuilderManager:
                     time.sleep(1.5)
                     continue  # Vòng lặp sẽ click lại vào toà nhà và tăng cấp lại
                 elif status == "FATAL":
-                    return False, None
+                    return self._result("FATAL")
 
                 # --- KIỂM TRA HẬU QUẢ ---
                 screen_after = self.device.take_screenshot()
@@ -576,16 +616,16 @@ class BuilderManager:
                     print("   [FAIL] Nút Tăng Cấp vẫn còn. (Nguyên nhân: Thiếu tài nguyên hoặc Đang bận xây).")
                     self.device.tap(1, 1)
                     time.sleep(1)
-                    return False, None
+                    return self._result("FAILED")
                 else:
                     print("   [SUCCESS] Nâng cấp thành công (Popup đã đóng).")
-                    return True, upgrade_time
+                    return self._result("SUCCESS", upgrade_time)
             else:
                 print("   [INFO] Không thấy nút Tăng Cấp (Có thể đang trong quá trình xây dựng).")
                 self.device.tap(1, 1)
-                return False, None
+                return self._result("FAILED")
 
-        return False, None
+        return self._result("FAILED")
 
     # --- MAIN LOOP ---
     def execute_sequence(self):
