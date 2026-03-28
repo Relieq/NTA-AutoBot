@@ -6,69 +6,34 @@ import cv2
 from modules.captcha import CaptchaSolver
 
 
-def draw_analysis(image, analysis):
+def draw_preview(image, solver, ok_found, ok_score, ok_loc, ok_template, title_found):
     output = image.copy()
 
-    question = analysis.get("question_text", "")
-    target_name = analysis.get("target_group_name", "")
-    selected_index = analysis.get("selected_index", -1)
+    cv2.putText(output, f"Captcha title detected: {title_found}", (10, 28), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
+    cv2.putText(output, f"btn_ok_captcha detected: {ok_found} (score={ok_score:.4f})", (10, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
 
-    cv2.putText(output, f"Question: {question}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-    cv2.putText(output, f"Target: {target_name}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+    x1, y1, x2, y2 = solver._icon_boxes()[0]
+    cv2.rectangle(output, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    cv2.putText(output, "Spam target: icon #1", (x1, max(20, y1 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
-    for icon in analysis.get("icons", []):
-        idx = icon["index"]
-        x1, y1, x2, y2 = icon["bbox"]
-        sim = icon.get("similarity", -1.0)
-        hybrid = icon.get("hybrid_score", -1.0)
-        final_score = icon.get("final_score", hybrid)
-        group_score = icon.get("group_model_score", 0.0)
-        pred = icon.get("predicted_label", "")
-        best_target = icon.get("best_target_label", "")
-        best_non_target = icon.get("best_non_target_label", "")
-
-        is_selected = idx == selected_index
-        color = (0, 255, 0) if is_selected else (0, 165, 255)
-
-        cv2.rectangle(output, (x1, y1), (x2, y2), color, 2)
-        cv2.putText(
-            output,
-            f"#{idx + 1} final={final_score:.4f} g_model={group_score:.4f} hybrid={hybrid:.4f}",
-            (x1, max(20, y1 - 26)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.45,
-            color,
-            1,
-        )
-        cv2.putText(
-            output,
-            f"pred={pred}",
-            (x1, max(20, y1 - 10)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.42,
-            color,
-            1,
-        )
-        cv2.putText(
-            output,
-            f"best_target={best_target} | best_non={best_non_target}",
-            (x1, y2 + 18),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.42,
-            color,
-            1,
-        )
+    if ok_found and ok_loc is not None and ok_template is not None:
+        h, w = ok_template.shape[:2]
+        bx1, by1 = ok_loc
+        bx2, by2 = bx1 + w, by1 + h
+        cv2.rectangle(output, (bx1, by1), (bx2, by2), (255, 200, 0), 2)
+        cx = bx1 + w // 2
+        cy = by1 + h // 2
+        cv2.circle(output, (cx, cy), 6, (255, 200, 0), -1)
+        cv2.putText(output, "Tap OK here", (bx1, max(20, by1 - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 200, 0), 1)
 
     return output
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Test captcha solver from a single screenshot.")
+    parser = argparse.ArgumentParser(description="Offline captcha check for spam strategy (#1 + OK).")
     parser.add_argument("--image", required=True, help="Path to screenshot containing captcha")
     parser.add_argument("--assets-dir", default="assets", help="Assets directory")
-    parser.add_argument("--dataset-dir", default="dataset", help="Dataset directory for prototypes")
     parser.add_argument("--save-debug", default="", help="Optional output path for annotated debug image")
-
     args = parser.parse_args()
 
     image_path = os.path.abspath(args.image)
@@ -76,44 +41,25 @@ def main():
     if screen is None:
         raise FileNotFoundError(f"Cannot read image: {image_path}")
 
-    solver = CaptchaSolver(assets_dir=args.assets_dir, dataset_dir=args.dataset_dir)
-    analysis = solver.analyze_captcha(screen)
+    solver = CaptchaSolver(assets_dir=args.assets_dir)
+
+    title_found = solver.detect_captcha(screen)
+    ok_found, ok_score, ok_loc, ok_template = solver._find_btn_ok_captcha(screen)
 
     print("=" * 80)
     print(f"Image: {image_path}")
-    print(f"Question: {analysis.get('question_text', '')}")
-    print(f"Target group: {analysis.get('target_group_name', '')}")
+    print(f"Captcha title detected: {title_found}")
+    print(f"btn_ok_captcha detected: {ok_found} (score={ok_score:.4f})")
 
-    if analysis.get("ok"):
-        print(f"Selected icon: #{analysis['selected_index'] + 1}")
+    ix1, iy1, ix2, iy2 = solver._icon_boxes()[0]
+    print(f"Spam icon #1 bbox: ({ix1}, {iy1}) -> ({ix2}, {iy2})")
+
+    if ok_found and ok_loc is not None and ok_template is not None:
+        click_x = ok_loc[0] + ok_template.shape[1] // 2
+        click_y = ok_loc[1] + ok_template.shape[0] // 2
+        print(f"Suggested OK click: ({click_x}, {click_y})")
     else:
-        print("Selected icon: None")
-
-    for icon in analysis.get("icons", []):
-        top3 = ", ".join(
-            [f"{label}:{score:.4f}" for label, score in icon.get("target_group_scores", [])[:3]]
-        )
-        top2_non = ", ".join(
-            [f"{label}:{score:.4f}" for label, score in icon.get("non_target_scores", [])[:2]]
-        )
-        print(
-            f"- Icon {icon['index'] + 1}: sim={icon.get('similarity', -1.0):.4f}, "
-            f"final={icon.get('final_score', icon.get('hybrid_score', -1.0)):.4f}, "
-            f"g_model={icon.get('group_model_score', 0.0):.4f}, "
-            f"hybrid={icon.get('hybrid_score', -1.0):.4f}, "
-            f"variant={icon.get('selected_variant', 'orig')}, "
-            f"pred={icon.get('predicted_label', '')}, "
-            f"pred_orig={icon.get('predicted_label_orig', '')}, "
-            f"pred_in_target={icon.get('pred_in_target', False)}, "
-            f"best_target={icon.get('best_target_label', '')}, best_non={icon.get('best_non_target_label', '')}, "
-            f"g_tgt={icon.get('target_group_sim', 0.0):.4f}, "
-            f"g_other={icon.get('best_other_group_name', '')}:{icon.get('best_other_group_sim', 0.0):.4f}, "
-            f"g_model_tgt={icon.get('target_group_prob_model', 0.0):.4f}, "
-            f"g_model_other={icon.get('best_other_group_name_model', '')}:{icon.get('best_other_group_prob_model', 0.0):.4f}, "
-            f"p_tgt={icon.get('target_prob', 0.0):.4f}, p_non={icon.get('non_target_prob', 0.0):.4f}, "
-            f"pg_tgt={icon.get('target_group_prob', 0.0):.4f}, pg_other={icon.get('best_other_group_prob', 0.0):.4f}, "
-            f"top3_tgt=[{top3}], top2_non=[{top2_non}]"
-        )
+        print("Suggested OK click: not found")
 
     if args.save_debug:
         out_path = os.path.abspath(args.save_debug)
@@ -121,9 +67,9 @@ def main():
         debug_dir = os.path.join(os.getcwd(), "debug_img")
         os.makedirs(debug_dir, exist_ok=True)
         base_name = os.path.splitext(os.path.basename(image_path))[0]
-        out_path = os.path.join(debug_dir, f"captcha_test_{base_name}.png")
+        out_path = os.path.join(debug_dir, f"captcha_spam_preview_{base_name}.png")
 
-    debug_img = draw_analysis(screen, analysis)
+    debug_img = draw_preview(screen, solver, ok_found, ok_score, ok_loc, ok_template, title_found)
     cv2.imwrite(out_path, debug_img)
     print(f"Saved debug image: {out_path}")
     print("=" * 80)

@@ -151,21 +151,43 @@ class MapManager:
 
     def parse_difficulty(self, text):
         normalized = self.normalize_text(text)
+        compact = normalized.replace(" ", "")
+        tokens = [tok for tok in normalized.split(" ") if tok]
+        token_set = set(tokens)
+
+        def has_any_token(candidates):
+            return any(token in token_set for token in candidates)
+
+        def has_any_compact(candidates):
+            return any(candidate and candidate in compact for candidate in candidates)
+
         level_match = re.search(r"(\d+)", normalized)
         level = int(level_match.group(1)) if level_match else 999
 
         tier_key = None
-        if "dia nguc" in normalized or "dianguc" in normalized:
+
+        # Ưu tiên các tier nhiều từ trước để tránh bắt nhầm tier ngắn.
+        if (
+            (has_any_token({"dia", "diaa"}) and has_any_token({"nguc", "ngoc", "ngut"}))
+            or has_any_compact({"dianguc", "diangoc", "diangut"})
+        ):
             tier_key = "dia_nguc"
-        elif "tang bac" in normalized or "tangbac" in normalized:
+        elif (
+            (has_any_token({"tang", "tag", "tangg", "tangj", "tangj"}) and has_any_token({"bac", "boc", "bae"}))
+            or ("tang" in compact and "bac" in compact)
+            or has_any_compact({"tangbac", "tagbac", "tangboc"})
+        ):
             tier_key = "tang_bac"
-        elif "nhap mon" in normalized or "nhapmon" in normalized:
+        elif (
+            (has_any_token({"nhap", "nhapj", "nha"}) and has_any_token({"mon", "m0n", "moi"}))
+            or has_any_compact({"nhapmon", "nhapmoi"})
+        ):
             tier_key = "nhap_mon"
-        elif re.search(r"\bthuong\b", normalized):
+        elif has_any_token({"thuong", "thuongg", "thuoing", "thung"}) or has_any_compact({"thuong"}):
             tier_key = "thuong"
-        elif re.search(r"\bkho\b", normalized):
+        elif has_any_token({"kho", "khoo", "kh0"}) or has_any_compact({"kho"}):
             tier_key = "kho"
-        elif re.search(r"\bde\b", normalized):
+        elif has_any_token({"de", "dee", "d3"}) or has_any_compact({"de"}):
             tier_key = "de"
 
         if not tier_key:

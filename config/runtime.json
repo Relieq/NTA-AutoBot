@@ -1,7 +1,7 @@
 ﻿{
-  "terminal_auto_clear_enabled": true,
+  "terminal_auto_clear_enabled": false,
   "terminal_auto_clear_interval_seconds": 500,
-  "debug_auto_cleanup_enabled": true,
+  "debug_auto_cleanup_enabled": false,
   "debug_auto_cleanup_interval_seconds": 500,
   "debug_auto_cleanup_keep_hours": 24,
   "debug_auto_cleanup_root_dir": "debug_img",

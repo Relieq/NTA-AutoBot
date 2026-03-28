@@ -1,37 +1,26 @@
 # NTA-AutoBot
 
-Bot tự động cho game Android chạy qua BlueStacks + ADB + nhận diện ảnh (OpenCV/OCR), không sử dụng API game.
+Bot tự động cho game Android chạy qua BlueStacks + ADB + nhận diện ảnh (OpenCV/OCR), không dùng API game.
 
-## 1) Tổng quan nhanh
-- Entry point: `main.py`
-- Vòng lặp ưu tiên cố định: `Combat -> DailyTask -> Builder`
-- Bot duy trì trạng thái trong `bot_state` (cooldown, phase chiến đấu, tiến độ xây)
-- Mọi thao tác đều dựa trên template image trong `assets/` (cố gắng phóng to màn hình game đến tối đa để dễ nhận diện).
-- Captcha được xử lý tự động bằng `modules/captcha.py` (ONNX + EasyOCR)
+## 1) Tổng quan
+- Entrypoint: `main.py`
+- Vòng lặp ưu tiên: `Combat -> DailyTask -> Builder`
+- Tác vụ dựa trên nhận diện UI trong `assets/`
+- Captcha dùng chiến lược thực dụng: **spam chọn icon #1**, bấm `btn_ok_captcha`, kiểm tra captcha đã biến mất chưa
 
-## 2) Kiến trúc project
-- `core/device.py`
-  - `DeviceManager`: kết nối ADB, `tap`, `swipe`, `precise_drag`, chụp màn hình.
-- `core/vision.py`
-  - `VisionManager`: `find_template(...)`, `find_all_templates(...)` với OpenCV template matching.
-- `modules/scene.py`
-  - Chuyển cảnh thành/map (`go_to_city`, `leave_the_city`) theo kiểu double-check.
-- `modules/daily_task.py`
-  - Nhiệm vụ đơn giản hằng ngày (vòng quay, vàng free), dùng helper `find_and_tap(...)`.
-- `modules/builder.py`
-  - Luồng xây/nâng cấp công trình, OCR level/time, skip idempotent khi đã đủ level.
-- `modules/combat.py`
-  - Tìm mục tiêu trên map, OCR độ khó, xuất quân, rút quân, dead-reckoning camera.
-- `modules/captcha.py`
-  - Nhận captcha, OCR câu hỏi, classifier ONNX cho icon, bấm đáp án.
-- `config/build_order.py`
-  - Danh sách lệnh xây/nâng cấp (`BUILD_SEQUENCE`).
+## 2) Kiến trúc chính
+- `core/device.py`: ADB (`tap`, `swipe`, `precise_drag`, screenshot)
+- `core/vision.py`: template matching đa scale + profile riêng từng template
+- `core/map_core.py`: dữ liệu map + cache metadata (`difficulty_rank`, `distance_to_city`)
+- `modules/scene.py`: chuyển map/city với verify sau thao tác
+- `modules/combat.py`: scan mục tiêu, OCR độ khó, dispatch/retreat, xử lý popup độ khó
+- `modules/builder.py`: build/upgrade theo `BUILD_SEQUENCE`, OCR level/time, OCR tên công trình
+- `modules/captcha.py`: detect captcha + solve theo spam strategy
 
 ## 3) Yêu cầu môi trường
-- Windows + BlueStacks (khuyến nghị dùng đúng tỉ lệ màn hình ổn định)
-- Python 3.12+ (tôi dùng 3.12)
-- Có sẵn `adb` trong PATH (hoặc cài [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools?hl=vi))
-- Đã cài các gói trong `requirements.txt`
+- Windows + BlueStacks
+- Python 3.12+
+- Có `adb` trong PATH (hoặc cài Android Platform Tools)
 
 ## 4) Cài đặt
 ```powershell
@@ -42,8 +31,6 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Nếu gặp lỗi PaddleOCR/PaddlePaddle, thử cài riêng theo CPU wheel phù hợp bản Python của bạn.
-
 ## 5) Chạy bot
 ```powershell
 cd D:\PyCharm\Project\NTA-AutoBot
@@ -51,39 +38,19 @@ cd D:\PyCharm\Project\NTA-AutoBot
 python main.py
 ```
 
-`main.py` sẽ:
-1. Tạo `DeviceManager` + `VisionManager`
-2. Load `CaptchaSolver` (ONNX) 1 lần
-3. Tạo `BuilderManager`, `DailyTaskManager`, `SceneManager`, `CombatManager`
-4. Chạy vòng lặp vô tận theo thứ tự ưu tiên
-
-Lưu ý: bot **không tự migrate** cache metadata của `map_data.json` khi startup để tránh duyệt lại toàn bộ map mỗi lần chạy.
-
-Nếu bạn vừa nâng schema/cache map, chạy tool migrate một lần:
-
-```powershell
-python migrate_map_cache.py
-```
-
-Kiểm tra trước (không ghi file):
-
-```powershell
-python migrate_map_cache.py --dry-run
-```
+`main.py` sẽ khởi tạo map/device/vision/captcha rồi chạy vòng lặp vô hạn.
 
 ## 6) Cấu hình quan trọng
 ### Build order
-Sửa `config/build_order.py` trong `BUILD_SEQUENCE`:
-- `name`: tên file template building (không cần `.png`)
+Sửa `config/build_order.py` (`BUILD_SEQUENCE`):
+- `name`: template building (không cần `.png`)
 - `target_lv`: level mục tiêu
 - `type_name`: tên hiển thị log
 
-### Vision threshold
-- Mặc định toàn cục: `VisionManager.threshold` trong `core/vision.py` (hiện là `0.6`)
-- Có thể cấu hình theo từng template trong `config/template_profiles.json`
-- Thứ tự ưu tiên khi resolve ngưỡng: `threshold truyền trực tiếp` -> `profile của template` -> `default trong profile` -> `VisionManager.threshold`
+### Template profile theo từng nút
+Sửa `config/template_profiles.json` để tune threshold/scales/weights cho từng template.
 
-Ví dụ profile theo từng nút:
+Ví dụ:
 ```json
 {
   "default": {
@@ -100,182 +67,84 @@ Ví dụ profile theo từng nút:
 }
 ```
 
-### Combat tuning
-Trong `modules/combat.py`:
-- `screen_w`, `screen_h` đang giả định `1600x900`
-- Rule tick checkbox: chỉ tính thành công khi OCR được `TG hành quân` của dòng quân đó
-- Cấu hình thời gian combat nằm trong `config/combat_timing.json`
-- Cấu hình blacklist độ khó theo từng tier/level nằm trong `config/combat_difficulty_blacklist.json`
-- Màu viền xanh map (`lower_green`/`upper_green`) để tìm border target
+### Combat timing + blacklist
+- `config/combat_timing.json`: thời gian chiến đấu theo tier
+- `config/combat_difficulty_blacklist.json`: bật/tắt theo tier và level
+- `config/combat_first_dispatch_status.json`: trạng thái đã gặp popup cảnh báo lần đầu theo từng dải độ khó
 
-### Runtime terminal
-- Cấu hình tự clear terminal định kỳ nằm trong `config/runtime.json`
-- `terminal_auto_clear_enabled`: bật/tắt tự clear terminal
-- `terminal_auto_clear_interval_seconds`: chu kỳ clear (giây), tối thiểu 10 giây
-- `runtime.json` được đọc bằng `utf-8-sig` để tương thích file có BOM (thường gặp khi lưu bằng PowerShell/Windows tools)
+### Runtime housekeeping
+Sửa `config/runtime.json`:
+- `terminal_auto_clear_enabled`, `terminal_auto_clear_interval_seconds`
+- `debug_auto_cleanup_enabled`, `debug_auto_cleanup_interval_seconds`, `debug_auto_cleanup_keep_hours`
 
-### Runtime debug cleanup
-- `debug_auto_cleanup_enabled`: bật/tắt tự dọn ảnh debug
-- `debug_auto_cleanup_interval_seconds`: chu kỳ quét dọn (giây)
-- `debug_auto_cleanup_keep_hours`: giữ lại ảnh mới hơn số giờ này
-- `debug_auto_cleanup_root_dir`: thư mục gốc cần dọn (mặc định `debug_img`)
-- `debug_auto_cleanup_max_delete_per_cycle`: giới hạn số file xóa mỗi chu kỳ
-- `debug_auto_cleanup_extensions`: chỉ xóa các đuôi ảnh trong danh sách
+## 7) Captcha (chiến lược hiện tại)
+`modules/captcha.py` không còn dùng model. Luồng xử lý:
+1. Detect captcha bằng `assets/title_captcha.png`
+2. Trong lúc captcha còn mở (còn thấy `btn_ok_captcha`):
+   - tap icon #1
+   - tap nút OK
+3. Sau mỗi vòng, chụp lại màn hình và kiểm tra `btn_ok_captcha` còn hay không
 
-Trong `core/map_core.py`:
-- Target `RESOURCE` đã có độ khó sẽ được ưu tiên theo thứ tự tăng dần:
-  `Dễ X` -> `Nhập môn X` -> `Thường X` -> `Tăng bậc X` -> `Khó X` -> `Địa ngục X`.
-- `UNKNOWN` hoặc không parse được độ khó sẽ đứng sau nhóm có độ khó parse được.
+Các file asset bắt buộc:
+- `assets/title_captcha.png`
+- `assets/btn_ok_captcha.png`
 
-### Captcha model + labels
-Trong `modules/captcha.py`:
-- `assets/captcha_model.onnx` phải tồn tại
-- Ưu tiên đọc `assets/captcha_labels.json` để đồng bộ thứ tự labels theo model
-- Nếu thiếu file labels json, solver mới fallback sang danh sách hardcode
-- Nếu có `assets/captcha_group_model.onnx`, solver sẽ ưu tiên score theo model 6 nhóm (đúng objective captcha)
-
-## 7) Retrain model captcha
-Dữ liệu nằm trong `dataset/` (mỗi class là 1 folder).
-
-```powershell
-cd D:\PyCharm\Project\NTA-AutoBot
-.\.venv\Scripts\Activate.ps1
-python train_captcha.py
-```
-
-Sau khi train, file mới được export vào:
-- `assets/captcha_model.onnx`
-- `assets/captcha_labels.json`
-
-Train thêm model captcha theo 6 nhóm (khuyến nghị):
-```powershell
-python train_captcha_group.py
-```
-
-File export của group model:
-- `assets/captcha_group_model.onnx`
-- `assets/captcha_group_labels.json`
-
-## 8) Assets là hợp đồng bắt buộc
-Bot chỉ hành động được nếu template đúng và khớp UI game:
-- Nút scene/task/combat/captcha nằm trong `assets/`
-- Building template nằm trong `assets/buildings/`
-
-Khi thêm hành động mới:
-1. Thêm template image tương ứng
-2. Viết flow tap + post-action verification
-3. Thêm debug capture để dễ calib
-
-## 9) Debug và calibration
-Thư mục `debug_img/` được dùng để lưu ảnh phân tích:
-- Border target + safe zone combat
-- OCR crop cho level/time/difficulty
-- Checkbox rounds khi dispatch/retreat
-- Kiểm tra nút OK sau retreat
-
-### Debug khoanh vùng template matching
-`VisionManager` hỗ trợ lưu ảnh khoanh vùng cho `find_template`/`find_all_templates` vào `debug_img/vision`.
-
-Bật nhanh bằng biến môi trường:
+## 8) Debug
+### Vision
 ```powershell
 $env:VISION_DEBUG = "1"
 python main.py
 ```
+Ảnh debug ở `debug_img/vision`.
 
-Tắt debug:
-```powershell
-$env:VISION_DEBUG = "0"
-```
-
-### Debug ảnh combat (OCR thời gian hành quân, checkbox, retreat)
-`CombatManager` hỗ trợ bật/tắt debug toàn cục bằng biến môi trường `COMBAT_DEBUG`.
-
-OCR thời gian hành quân dùng `PaddleOCR` (pipeline giống builder) để ổn định hơn với chuỗi dạng thời gian.
-
-Ảnh debug OCR thời gian được tách thành 2 nhóm:
-- `debug_img/combat/time_overlay/`: ảnh full màn hình có khoanh ROI + kết quả parse
-- `debug_img/combat/time_processed/`: ảnh vùng đã tiền xử lý OCR + text/parse
-
-Bật debug combat:
+### Combat
 ```powershell
 $env:COMBAT_DEBUG = "1"
 python main.py
 ```
+Ảnh debug ở `debug_img/combat` (overlay OCR time, processed OCR, checkbox rounds, retreat checks).
 
-Tắt debug combat:
-```powershell
-$env:COMBAT_DEBUG = "0"
-```
-
-### Debug ảnh builder
-`BuilderManager` hỗ trợ bật/tắt debug toàn cục bằng biến môi trường `BUILDER_DEBUG`.
-
-Builder debug hiện tách theo nhóm thư mục:
-- `debug_img/builder/build_list_overlay/`: ảnh overlay danh sách build từng vòng lăn
-- `debug_img/builder/build_list_processed/`: ảnh ROI đã xử lý OCR theo từng dòng
-- `debug_img/builder/level_ocr/`: debug OCR level công trình
-- `debug_img/builder/time_ocr/`: debug OCR thời gian build/upgrade
-
-Khi OCR tên công trình, log console sẽ in cả `raw` và `norm` để đối chiếu kết quả match.
-
-Bật debug builder:
+### Builder
 ```powershell
 $env:BUILDER_DEBUG = "1"
 python main.py
 ```
+Ảnh debug ở `debug_img/builder`.
 
-Tắt debug builder:
+### Captcha
 ```powershell
-$env:BUILDER_DEBUG = "0"
+$env:CAPTCHA_DEBUG = "1"
+python main.py
+```
+Ảnh debug ở `debug_img/captcha/spam` theo từng attempt (`before`, `after_pick`, `after_ok`).
+
+## 9) Công cụ tiện ích
+### Migrate cache map một lần (khi đổi schema/cache)
+```powershell
+python migrate_map_cache.py
+```
+Kiểm tra trước (không ghi file):
+```powershell
+python migrate_map_cache.py --dry-run
 ```
 
-Khi bot click sai/không tìm thấy UI:
-1. Giảm/tăng threshold tại call đó
-2. Kiểm tra lại template screenshot
-3. Kiểm tra crop tọa độ OCR theo đúng độ phân giải
-
-## 10) Pattern quan trọng khi phát triển
-- Giữ boundary manager rõ ràng: low-level ADB ở `core/device.py`, logic nghiệp vụ ở `modules/*`.
-- Sau mỗi action quan trọng, luôn check hậu quả bằng UI (nút còn hiện = fail).
-- Tại builder/combat, xử lý captcha theo trạng thái: `OK`, `INTERRUPTED`, `FATAL`.
-- Builder ưu tiên idempotent: đọc level hiện tại trước, đạt rồi thì skip.
-- Combat dùng `camera_offset` + `reset_camera_to_city()` để tránh lạc neo tọa độ.
-
-## 11) Troubleshooting nhanh
-### Không kết nối được emulator
-- Mở BlueStacks trước
-- Kiểm tra `adb devices`
-- Kiểm tra host/port trong `DeviceManager` (mặc định `127.0.0.1:5555`)
-
-### OCR đọc sai level/time
-- Kiểm tra ảnh trong `debug_img/`
-- Điều chỉnh crop tọa độ trong `modules/builder.py`
-- Đảm bảo scale màn hình không đổi so với lúc calib
-
-### Combat không tìm thấy mục tiêu
-- Kiểm tra biên màu xanh (`lower_green`, `upper_green`)
-- Kiểm tra `thanh_chinh_map.png` có còn khớp map hiện tại
-- Kiểm tra `screen_w/screen_h` có đúng với emulator
-
-### Captcha fail
-- Kiểm tra `assets/title_captcha.png`, `assets/btn_ok_captcha.png`
-- Retrain lại model và đồng bộ thứ tự `labels`
-
 ### Test captcha offline từ ảnh chụp
-Bạn có thể test solver mà không cần chờ captcha xuất hiện trong game:
-
 ```powershell
 python test_captcha_solver.py --image "debug_img\your_captcha_screen.png"
 ```
-
-Nếu muốn chỉ định đường dẫn ảnh debug output:
-
+Lưu ảnh preview riêng:
 ```powershell
-python test_captcha_solver.py --image "debug_img\your_captcha_screen.png" --save-debug "debug_img\captcha_test_result.png"
+python test_captcha_solver.py --image "debug_img\your_captcha_screen.png" --save-debug "debug_img\captcha_spam_preview.png"
 ```
 
-## 12) Lưu ý an toàn vận hành
-- Đây là bot tự động thao tác game, có rủi ro account tùy theo chính sách game.
-- Nên test trên account phụ trước khi chạy dài hạn.
-- Luôn theo dõi log khi thay đổi threshold/tọa độ/template.
+## 10) Pattern phát triển nên giữ
+- Sau mỗi action quan trọng phải verify UI hậu thao tác.
+- Reuse helper hiện có thay vì viết flow one-off.
+- Mọi chỉnh threshold/toạ độ nên có ảnh debug đi kèm để tune nhanh.
+- Với map/combat: ưu tiên dữ liệu cache (`difficulty_*`, `distance_to_city`) trước khi OCR lại.
 
+## 11) Troubleshooting nhanh
+- Không kết nối ADB: kiểm tra BlueStacks, `adb devices`, host/port trong `DeviceManager`.
+- OCR sai: xem ảnh trong `debug_img/`, chỉnh ROI hoặc tiền xử lý OCR.
+- Tap sai: tune profile trong `config/template_profiles.json` trước khi sửa logic lớn.
+- Captcha chưa qua: kiểm tra 2 template `title_captcha.png` và `btn_ok_captcha.png`.

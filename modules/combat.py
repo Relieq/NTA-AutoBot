@@ -489,6 +489,64 @@ class CombatManager:
 
         return "FAILED" if popup_seen else "NOT_FOUND"
 
+    def _save_retreat_entry_debug(self, screen_img, btn_hanh_quan_pos, checkbox_pos, btn_ok_pos, note, debug_override=None):
+        if not self._should_debug(debug_override):
+            return
+
+        out_dir = os.path.join(self.debug_dir, "retreat_entry")
+        os.makedirs(out_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        debug_img = screen_img.copy()
+
+        self._draw_detection_box(debug_img, btn_hanh_quan_pos, "btn_hanh_quan_map.png", "btn_hanh_quan", (0, 255, 255))
+        self._draw_detection_box(debug_img, checkbox_pos, "checkbox_unchecked.png", "checkbox", (0, 255, 0))
+        self._draw_detection_box(debug_img, btn_ok_pos, "btn_ok_xuat_chien.png", "btn_ok", (255, 0, 0))
+
+        cv2.putText(debug_img, note, (10, self.screen_h - 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
+
+        out_path = os.path.join(out_dir, f"debug_retreat_entry_{ts}.png")
+        cv2.imwrite(out_path, debug_img)
+
+    def _open_retreat_troops_panel(self, btn_hanh_quan_pos, debug=None, max_attempts=3):
+        """Tap nút Hành Quân với verify hậu-tap để tránh false-positive hoặc tap hụt."""
+        current_btn = btn_hanh_quan_pos
+
+        for attempt in range(1, max_attempts + 1):
+            if not current_btn:
+                break
+
+            print(f"   [RETREAT] Mở panel rút quân - thử lần {attempt}/{max_attempts} tại {current_btn}...")
+            self.device.tap(current_btn[0], current_btn[1])
+            time.sleep(2)
+
+            post_tap_screen = self.device.take_screenshot()
+            checkbox_pos = self.vision.find_template(post_tap_screen, self._get_path("checkbox_unchecked.png"))
+            btn_ok_pos = self.vision.find_template(post_tap_screen, self._get_path("btn_ok_xuat_chien.png"))
+            btn_hanh_quan2 = self.vision.find_template(post_tap_screen, self._get_path("btn_hanh_quan_map.png"))
+
+            if not btn_hanh_quan2:
+                self._save_retreat_entry_debug(
+                    post_tap_screen,
+                    current_btn,
+                    checkbox_pos,
+                    btn_ok_pos,
+                    f"RETREAT ENTRY SUCCESS attempt={attempt}",
+                    debug_override=debug,
+                )
+                return True
+
+            self._save_retreat_entry_debug(
+                post_tap_screen,
+                btn_hanh_quan2,
+                checkbox_pos,
+                btn_ok_pos,
+                f"RETREAT ENTRY RETRY attempt={attempt}",
+                debug_override=debug,
+            )
+
+        return False
+
     def safe_wait_and_check(self, wait_time=1.5):
         """
         Đợi và kiểm tra xem Captcha có xuất hiện sau một hành động không.
@@ -654,8 +712,8 @@ class CombatManager:
         # Crop vùng chứa text độ khó (Bạn cần tinh chỉnh tọa độ này chính xác)
         # Giả sử popup hiện ngay trên nút chiếm
         # Tọa độ ước lượng:
-        x1, y1 = btn_chiem_pos[0] - 200, btn_chiem_pos[1] - 57
-        x2, y2 = x1 + 80, y1 + 30
+        x1, y1 = btn_chiem_pos[0] - 210, btn_chiem_pos[1] - 57
+        x2, y2 = x1 + 90, y1 + 30
 
         # Đảm bảo tọa độ không vượt quá kích thước ảnh
         x1 = max(0, x1)
@@ -867,8 +925,8 @@ class CombatManager:
                 # Swipe từ dưới lên trên (kéo danh sách xuống) trong vùng cửa sổ chọn quân
                 # Giả định vùng checkbox ở giữa màn hình
                 swipe_x = self.screen_w // 2
-                swipe_start_y = self.screen_h // 2 + 125
-                swipe_end_y = self.screen_h // 2 - 125
+                swipe_start_y = self.screen_h // 2 + 115
+                swipe_end_y = self.screen_h // 2 - 115
                 self.device.precise_drag(swipe_x, swipe_start_y, swipe_x, swipe_end_y, duration=2000)
                 time.sleep(1.0)
 
@@ -1154,9 +1212,8 @@ class CombatManager:
         screen = self.device.take_screenshot()
         btn_hanh_quan = self.vision.find_template(screen, self._get_path("btn_hanh_quan_map.png"))
 
-        if btn_hanh_quan:
-            self.device.tap(btn_hanh_quan[0], btn_hanh_quan[1])
-            time.sleep(2)
+        if btn_hanh_quan and self._open_retreat_troops_panel(btn_hanh_quan, debug=debug, max_attempts=3):
+            time.sleep(1)
 
             # 4. Chọn tất cả quân (có swipe để cuộn danh sách nếu cần)
             count = 0

@@ -23,8 +23,8 @@ def main():
     terminal_cleaner = TerminalCleaner()
     debug_cleaner = DebugImageCleaner()
 
-    # Khởi tạo CaptchaSolver (Load model ONNX vào RAM 1 lần duy nhất)
-    print("--- ĐANG TẢI MODEL AI GIẢI CAPTCHA ---")
+    # Khởi tạo CaptchaSolver (template-driven spam strategy)
+    print("--- KHỞI TẠO CAPTCHA SOLVER (SPAM ICON #1) ---")
     captcha_solver = CaptchaSolver()
 
     # Khởi tạo các module
