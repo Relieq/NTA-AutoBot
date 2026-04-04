@@ -14,6 +14,9 @@ try:
     from PySide6.QtWidgets import (
         QApplication,
         QButtonGroup,
+        QCheckBox,
+        QComboBox,
+        QFormLayout,
         QGridLayout,
         QGroupBox,
         QHBoxLayout,
@@ -21,10 +24,12 @@ try:
         QLineEdit,
         QMainWindow,
         QMessageBox,
+        QSpinBox,
         QPushButton,
         QRadioButton,
         QScrollArea,
         QToolTip,
+        QStackedWidget,
         QTextEdit,
         QVBoxLayout,
         QWidget,
@@ -384,6 +389,21 @@ class MainWindow(QMainWindow):
         self.command_queue = None
         self.event_queue = None
         self.state_queue = None
+        self.hard_planner_window = None
+        self.config_editor_window = None
+        self._config_editor_loading = False
+        self._config_dirty = False
+        self._config_current_path = None
+        self._config_data_cache = {}
+        self._config_tiers = ["de", "nhap_mon", "thuong", "tang_bac", "kho", "dia_nguc"]
+        self.config_file_options = {
+            "runtime.json": os.path.abspath(os.path.join(os.getcwd(), "config", "runtime.json")),
+            "template_profiles.json": os.path.abspath(os.path.join(os.getcwd(), "config", "template_profiles.json")),
+            "combat_timing.json": os.path.abspath(os.path.join(os.getcwd(), "config", "combat_timing.json")),
+            "combat_difficulty_blacklist.json": os.path.abspath(os.path.join(os.getcwd(), "config", "combat_difficulty_blacklist.json")),
+            "combat_first_dispatch_status.json": os.path.abspath(os.path.join(os.getcwd(), "config", "combat_first_dispatch_status.json")),
+            "hard_dig_plan.json": os.path.abspath(os.path.join(os.getcwd(), "config", "hard_dig_plan.json")),
+        }
 
         self._build_ui()
 
@@ -403,18 +423,24 @@ class MainWindow(QMainWindow):
         self.btn_resume = QPushButton("Resume")
         self.btn_stop = QPushButton("Stop")
         self.btn_clear = QPushButton("Clear Log")
+        self.btn_open_hard = QPushButton("Open Hard-Dig Planner")
+        self.btn_open_config = QPushButton("Open Config Editor")
 
         self.btn_start.clicked.connect(self.start_bot)
         self.btn_pause.clicked.connect(self.pause_bot)
         self.btn_resume.clicked.connect(self.resume_bot)
         self.btn_stop.clicked.connect(self.stop_bot)
         self.btn_clear.clicked.connect(self.clear_log)
+        self.btn_open_hard.clicked.connect(self._open_hard_planner_window)
+        self.btn_open_config.clicked.connect(self._open_config_editor_window)
 
         ctrl_layout.addWidget(self.btn_start)
         ctrl_layout.addWidget(self.btn_pause)
         ctrl_layout.addWidget(self.btn_resume)
         ctrl_layout.addWidget(self.btn_stop)
         ctrl_layout.addWidget(self.btn_clear)
+        ctrl_layout.addWidget(self.btn_open_hard)
+        ctrl_layout.addWidget(self.btn_open_config)
         layout.addWidget(ctrl_box)
 
         map_box = QGroupBox("Khoi tao map")
@@ -448,8 +474,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(map_box)
         self._update_map_input_enabled()
 
-        hard_box = QGroupBox("Hard-Dig Planner")
-        hard_layout = QVBoxLayout(hard_box)
+        self.hard_box = QGroupBox("Hard-Dig Planner")
+        hard_layout = QVBoxLayout(self.hard_box)
 
         mode_row = QHBoxLayout()
         self.radio_mode_paint = QRadioButton("To mau")
@@ -527,7 +553,7 @@ class MainWindow(QMainWindow):
         )
         hard_layout.addWidget(self.lbl_hard_legend)
 
-        layout.addWidget(hard_box)
+        # Hard-Dig planner sẽ hiển thị ở cửa sổ riêng.
 
         state_box = QGroupBox("Trang thai Runtime")
         state_grid = QGridLayout(state_box)
@@ -552,6 +578,138 @@ class MainWindow(QMainWindow):
         state_grid.addWidget(self.lbl_updated, 5, 1)
         layout.addWidget(state_box)
 
+        self.config_box = QGroupBox("Config Editor")
+        config_layout = QVBoxLayout(self.config_box)
+
+        config_top = QHBoxLayout()
+        self.combo_config_file = QComboBox()
+        self.combo_config_file.addItems(list(self.config_file_options.keys()))
+        self.btn_config_load = QPushButton("Load")
+        self.btn_config_save = QPushButton("Save")
+        self.btn_config_format = QPushButton("Format JSON")
+        self.btn_config_toggle_advanced = QPushButton("Toggle Advanced JSON")
+
+        self.btn_config_load.clicked.connect(self._load_selected_config)
+        self.btn_config_save.clicked.connect(self._save_selected_config)
+        self.btn_config_format.clicked.connect(self._format_selected_json)
+        self.btn_config_toggle_advanced.clicked.connect(self._toggle_advanced_editor)
+        self.combo_config_file.currentIndexChanged.connect(self._on_config_selection_changed)
+
+        config_top.addWidget(self.combo_config_file)
+        config_top.addWidget(self.btn_config_load)
+        config_top.addWidget(self.btn_config_save)
+        config_top.addWidget(self.btn_config_format)
+        config_top.addWidget(self.btn_config_toggle_advanced)
+        config_layout.addLayout(config_top)
+
+        self.lbl_config_mode = QLabel("Mode: friendly")
+        config_layout.addWidget(self.lbl_config_mode)
+
+        self.config_stack = QStackedWidget()
+        self.config_layout_runtime = {}
+        self.config_layout_combat_timing = {}
+        self.config_layout_blacklist = {}
+        self.config_layout_first_dispatch = {}
+        self.config_layout_hard_dig = {}
+
+        runtime_page = QWidget()
+        runtime_form = QFormLayout(runtime_page)
+        self.config_layout_runtime["terminal_auto_clear_enabled"] = QCheckBox()
+        self.config_layout_runtime["terminal_auto_clear_interval_seconds"] = QSpinBox()
+        self.config_layout_runtime["terminal_auto_clear_interval_seconds"].setRange(1, 86400)
+        self.config_layout_runtime["debug_auto_cleanup_enabled"] = QCheckBox()
+        self.config_layout_runtime["debug_auto_cleanup_interval_seconds"] = QSpinBox()
+        self.config_layout_runtime["debug_auto_cleanup_interval_seconds"].setRange(1, 86400)
+        self.config_layout_runtime["debug_auto_cleanup_keep_hours"] = QSpinBox()
+        self.config_layout_runtime["debug_auto_cleanup_keep_hours"].setRange(1, 24 * 365)
+        runtime_form.addRow("terminal_auto_clear_enabled", self.config_layout_runtime["terminal_auto_clear_enabled"])
+        runtime_form.addRow("terminal_auto_clear_interval_seconds", self.config_layout_runtime["terminal_auto_clear_interval_seconds"])
+        runtime_form.addRow("debug_auto_cleanup_enabled", self.config_layout_runtime["debug_auto_cleanup_enabled"])
+        runtime_form.addRow("debug_auto_cleanup_interval_seconds", self.config_layout_runtime["debug_auto_cleanup_interval_seconds"])
+        runtime_form.addRow("debug_auto_cleanup_keep_hours", self.config_layout_runtime["debug_auto_cleanup_keep_hours"])
+
+        timing_page = QWidget()
+        timing_form = QFormLayout(timing_page)
+        self.config_layout_combat_timing["default_battle_duration_seconds"] = QSpinBox()
+        self.config_layout_combat_timing["default_battle_duration_seconds"].setRange(1, 36000)
+        self.config_layout_combat_timing["max_scout_targets_per_cycle"] = QSpinBox()
+        self.config_layout_combat_timing["max_scout_targets_per_cycle"].setRange(1, 200)
+        timing_form.addRow("default_battle_duration_seconds", self.config_layout_combat_timing["default_battle_duration_seconds"])
+        timing_form.addRow("max_scout_targets_per_cycle", self.config_layout_combat_timing["max_scout_targets_per_cycle"])
+        for tier in self._config_tiers:
+            sb = QSpinBox()
+            sb.setRange(1, 36000)
+            self.config_layout_combat_timing[f"battle_{tier}"] = sb
+            timing_form.addRow(f"battle_duration_seconds.{tier}", sb)
+
+        blacklist_page = QWidget()
+        blacklist_form = QFormLayout(blacklist_page)
+        self.config_layout_blacklist["enabled"] = QCheckBox()
+        blacklist_form.addRow("enabled", self.config_layout_blacklist["enabled"])
+        for tier in self._config_tiers:
+            default_cb = QCheckBox()
+            levels_le = QLineEdit()
+            levels_le.setPlaceholderText("vd: 1,2,3")
+            self.config_layout_blacklist[f"{tier}_default"] = default_cb
+            self.config_layout_blacklist[f"{tier}_levels"] = levels_le
+            blacklist_form.addRow(f"tiers.{tier}.default", default_cb)
+            blacklist_form.addRow(f"tiers.{tier}.levels", levels_le)
+
+        first_dispatch_page = QWidget()
+        first_dispatch_form = QFormLayout(first_dispatch_page)
+        self.config_layout_first_dispatch["enabled"] = QCheckBox()
+        first_dispatch_form.addRow("enabled", self.config_layout_first_dispatch["enabled"])
+        for tier in self._config_tiers:
+            cb = QCheckBox()
+            self.config_layout_first_dispatch[f"tier_{tier}"] = cb
+            first_dispatch_form.addRow(f"tiers.{tier}", cb)
+
+        hard_dig_page = QWidget()
+        hard_dig_form = QFormLayout(hard_dig_page)
+        self.config_layout_hard_dig["enabled"] = QCheckBox()
+        self.config_layout_hard_dig["auto_start_on_boot"] = QCheckBox()
+        self.config_layout_hard_dig["activate_hotkey"] = QLineEdit()
+        self.config_layout_hard_dig["start_x"] = QSpinBox()
+        self.config_layout_hard_dig["start_x"].setRange(0, 600)
+        self.config_layout_hard_dig["start_y"] = QSpinBox()
+        self.config_layout_hard_dig["start_y"].setRange(0, 600)
+        hard_dig_form.addRow("enabled", self.config_layout_hard_dig["enabled"])
+        hard_dig_form.addRow("auto_start_on_boot", self.config_layout_hard_dig["auto_start_on_boot"])
+        hard_dig_form.addRow("activate_hotkey", self.config_layout_hard_dig["activate_hotkey"])
+        hard_dig_form.addRow("start_tile.x", self.config_layout_hard_dig["start_x"])
+        hard_dig_form.addRow("start_tile.y", self.config_layout_hard_dig["start_y"])
+
+        self.editor_config = QTextEdit()
+        self.editor_config.setMinimumHeight(180)
+        self.editor_config.textChanged.connect(self._on_config_text_changed)
+
+        self.config_stack.addWidget(runtime_page)
+        self.config_stack.addWidget(timing_page)
+        self.config_stack.addWidget(blacklist_page)
+        self.config_stack.addWidget(first_dispatch_page)
+        self.config_stack.addWidget(hard_dig_page)
+        self.config_stack.addWidget(self.editor_config)
+        config_layout.addWidget(self.config_stack)
+
+        self.lbl_config_status = QLabel("Status: idle")
+        config_layout.addWidget(self.lbl_config_status)
+
+        for widget in (
+            *self.config_layout_runtime.values(),
+            *self.config_layout_combat_timing.values(),
+            *self.config_layout_blacklist.values(),
+            *self.config_layout_first_dispatch.values(),
+            *self.config_layout_hard_dig.values(),
+        ):
+            if hasattr(widget, "valueChanged"):
+                widget.valueChanged.connect(self._on_config_text_changed)
+            elif hasattr(widget, "stateChanged"):
+                widget.stateChanged.connect(self._on_config_text_changed)
+            elif hasattr(widget, "textChanged"):
+                widget.textChanged.connect(self._on_config_text_changed)
+
+        # Config editor sẽ hiển thị ở cửa sổ riêng.
+
         log_box = QGroupBox("Live Log")
         log_layout = QVBoxLayout(log_box)
         self.log_view = QTextEdit()
@@ -563,6 +721,306 @@ class MainWindow(QMainWindow):
 
         self._load_hard_dig_plan_into_canvas()
         self._reload_hard_dig_overlay(show_feedback=False)
+        self._load_selected_config()
+
+    def _open_hard_planner_window(self):
+        if self.hard_planner_window is None:
+            self.hard_planner_window = QWidget()
+            self.hard_planner_window.setWindowTitle("NTA-AutoBot - Hard-Dig Planner")
+            self.hard_planner_window.resize(1080, 760)
+            layout = QVBoxLayout(self.hard_planner_window)
+            layout.setContentsMargins(8, 8, 8, 8)
+            layout.addWidget(self.hard_box)
+
+        self.hard_planner_window.show()
+        self.hard_planner_window.raise_()
+        self.hard_planner_window.activateWindow()
+
+    def _open_config_editor_window(self):
+        if self.config_editor_window is None:
+            self.config_editor_window = QWidget()
+            self.config_editor_window.setWindowTitle("NTA-AutoBot - Config Editor")
+            self.config_editor_window.resize(980, 700)
+            layout = QVBoxLayout(self.config_editor_window)
+            layout.setContentsMargins(8, 8, 8, 8)
+            layout.addWidget(self.config_box)
+
+        self.config_editor_window.show()
+        self.config_editor_window.raise_()
+        self.config_editor_window.activateWindow()
+
+    def _selected_config_path(self):
+        key = self.combo_config_file.currentText().strip()
+        return self.config_file_options.get(key)
+
+    def _selected_config_key(self):
+        return self.combo_config_file.currentText().strip()
+
+    def _friendly_page_index(self, key):
+        mapping = {
+            "runtime.json": 0,
+            "combat_timing.json": 1,
+            "combat_difficulty_blacklist.json": 2,
+            "combat_first_dispatch_status.json": 3,
+            "hard_dig_plan.json": 4,
+        }
+        return mapping.get(key, 5)
+
+    def _toggle_advanced_editor(self):
+        current = self.config_stack.currentIndex()
+        key = self._selected_config_key()
+        friendly_idx = self._friendly_page_index(key)
+        if current == 5:
+            self.config_stack.setCurrentIndex(friendly_idx)
+            self.lbl_config_mode.setText("Mode: friendly")
+        else:
+            self.config_stack.setCurrentIndex(5)
+            self.lbl_config_mode.setText("Mode: advanced json")
+
+    def _populate_friendly_editor(self, key, data):
+        self._config_editor_loading = True
+        try:
+            if key == "runtime.json":
+                self.config_layout_runtime["terminal_auto_clear_enabled"].setChecked(bool(data.get("terminal_auto_clear_enabled", True)))
+                self.config_layout_runtime["terminal_auto_clear_interval_seconds"].setValue(int(data.get("terminal_auto_clear_interval_seconds", 900)))
+                self.config_layout_runtime["debug_auto_cleanup_enabled"].setChecked(bool(data.get("debug_auto_cleanup_enabled", True)))
+                self.config_layout_runtime["debug_auto_cleanup_interval_seconds"].setValue(int(data.get("debug_auto_cleanup_interval_seconds", 900)))
+                self.config_layout_runtime["debug_auto_cleanup_keep_hours"].setValue(int(data.get("debug_auto_cleanup_keep_hours", 12)))
+            elif key == "combat_timing.json":
+                self.config_layout_combat_timing["default_battle_duration_seconds"].setValue(int(data.get("default_battle_duration_seconds", 150)))
+                self.config_layout_combat_timing["max_scout_targets_per_cycle"].setValue(int(data.get("max_scout_targets_per_cycle", 10)))
+                battle = data.get("battle_duration_seconds", {}) if isinstance(data.get("battle_duration_seconds", {}), dict) else {}
+                for tier in self._config_tiers:
+                    self.config_layout_combat_timing[f"battle_{tier}"].setValue(int(battle.get(tier, 150)))
+            elif key == "combat_difficulty_blacklist.json":
+                self.config_layout_blacklist["enabled"].setChecked(bool(data.get("enabled", True)))
+                tiers = data.get("tiers", {}) if isinstance(data.get("tiers", {}), dict) else {}
+                for tier in self._config_tiers:
+                    cfg = tiers.get(tier, {}) if isinstance(tiers.get(tier, {}), dict) else {}
+                    self.config_layout_blacklist[f"{tier}_default"].setChecked(bool(cfg.get("default", False)))
+                    levels = cfg.get("levels", {}) if isinstance(cfg.get("levels", {}), dict) else {}
+                    blocked = sorted([str(k) for k, v in levels.items() if bool(v)], key=lambda s: int(s) if s.isdigit() else s)
+                    self.config_layout_blacklist[f"{tier}_levels"].setText(",".join(blocked))
+            elif key == "combat_first_dispatch_status.json":
+                self.config_layout_first_dispatch["enabled"].setChecked(bool(data.get("enabled", True)))
+                tiers = data.get("tiers", {}) if isinstance(data.get("tiers", {}), dict) else {}
+                for tier in self._config_tiers:
+                    self.config_layout_first_dispatch[f"tier_{tier}"].setChecked(bool(tiers.get(tier, False)))
+            elif key == "hard_dig_plan.json":
+                self.config_layout_hard_dig["enabled"].setChecked(bool(data.get("enabled", False)))
+                self.config_layout_hard_dig["auto_start_on_boot"].setChecked(bool(data.get("auto_start_on_boot", False)))
+                self.config_layout_hard_dig["activate_hotkey"].setText(str(data.get("activate_hotkey", "h")))
+                st = data.get("start_tile", [300, 300])
+                sx = int(st[0]) if isinstance(st, (list, tuple)) and len(st) >= 2 else 300
+                sy = int(st[1]) if isinstance(st, (list, tuple)) and len(st) >= 2 else 300
+                self.config_layout_hard_dig["start_x"].setValue(sx)
+                self.config_layout_hard_dig["start_y"].setValue(sy)
+        finally:
+            self._config_editor_loading = False
+
+    def _collect_friendly_editor(self, key, base_obj):
+        obj = dict(base_obj) if isinstance(base_obj, dict) else {}
+
+        if key == "runtime.json":
+            obj["terminal_auto_clear_enabled"] = self.config_layout_runtime["terminal_auto_clear_enabled"].isChecked()
+            obj["terminal_auto_clear_interval_seconds"] = int(self.config_layout_runtime["terminal_auto_clear_interval_seconds"].value())
+            obj["debug_auto_cleanup_enabled"] = self.config_layout_runtime["debug_auto_cleanup_enabled"].isChecked()
+            obj["debug_auto_cleanup_interval_seconds"] = int(self.config_layout_runtime["debug_auto_cleanup_interval_seconds"].value())
+            obj["debug_auto_cleanup_keep_hours"] = int(self.config_layout_runtime["debug_auto_cleanup_keep_hours"].value())
+            return obj
+
+        if key == "combat_timing.json":
+            obj["default_battle_duration_seconds"] = int(self.config_layout_combat_timing["default_battle_duration_seconds"].value())
+            obj["max_scout_targets_per_cycle"] = int(self.config_layout_combat_timing["max_scout_targets_per_cycle"].value())
+            battle = obj.get("battle_duration_seconds", {}) if isinstance(obj.get("battle_duration_seconds", {}), dict) else {}
+            for tier in self._config_tiers:
+                battle[tier] = int(self.config_layout_combat_timing[f"battle_{tier}"].value())
+            obj["battle_duration_seconds"] = battle
+            return obj
+
+        if key == "combat_difficulty_blacklist.json":
+            obj["enabled"] = self.config_layout_blacklist["enabled"].isChecked()
+            tiers = obj.get("tiers", {}) if isinstance(obj.get("tiers", {}), dict) else {}
+            for tier in self._config_tiers:
+                tier_cfg = tiers.get(tier, {}) if isinstance(tiers.get(tier, {}), dict) else {}
+                tier_cfg["default"] = self.config_layout_blacklist[f"{tier}_default"].isChecked()
+                raw = self.config_layout_blacklist[f"{tier}_levels"].text().strip()
+                levels = {}
+                if raw:
+                    for token in raw.split(","):
+                        t = token.strip()
+                        if t.isdigit():
+                            levels[t] = True
+                tier_cfg["levels"] = levels
+                tiers[tier] = tier_cfg
+            obj["tiers"] = tiers
+            return obj
+
+        if key == "combat_first_dispatch_status.json":
+            obj["enabled"] = self.config_layout_first_dispatch["enabled"].isChecked()
+            tiers = obj.get("tiers", {}) if isinstance(obj.get("tiers", {}), dict) else {}
+            for tier in self._config_tiers:
+                tiers[tier] = self.config_layout_first_dispatch[f"tier_{tier}"].isChecked()
+            obj["tiers"] = tiers
+            return obj
+
+        if key == "hard_dig_plan.json":
+            obj["enabled"] = self.config_layout_hard_dig["enabled"].isChecked()
+            obj["auto_start_on_boot"] = self.config_layout_hard_dig["auto_start_on_boot"].isChecked()
+            hotkey = self.config_layout_hard_dig["activate_hotkey"].text().strip().lower()
+            obj["activate_hotkey"] = hotkey[:1] if hotkey else "h"
+            obj["start_tile"] = [
+                int(self.config_layout_hard_dig["start_x"].value()),
+                int(self.config_layout_hard_dig["start_y"].value()),
+            ]
+            return obj
+
+        return obj
+
+    def _read_text_file(self, path):
+        for enc in ("utf-8-sig", "utf-8"):
+            try:
+                with open(path, "r", encoding=enc) as f:
+                    return f.read()
+            except Exception:
+                continue
+        raise RuntimeError(f"Khong doc duoc file: {path}")
+
+    def _write_text_file_safe(self, path, content):
+        backup_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = f"{path}.bak_{backup_ts}"
+        tmp_path = f"{path}.tmp"
+
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8-sig") as src, open(backup_path, "w", encoding="utf-8") as bak:
+                    bak.write(src.read())
+            except Exception:
+                # Backup lỗi không chặn save chính.
+                pass
+
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        os.replace(tmp_path, path)
+
+    def _on_config_text_changed(self):
+        if self._config_editor_loading:
+            return
+        self._config_dirty = True
+        self.lbl_config_status.setText("Status: modified")
+
+    def _on_config_selection_changed(self):
+        if self._config_dirty:
+            reply = QMessageBox.question(
+                self,
+                "Thong bao",
+                "Ban co thay doi chua luu. Co tai file config moi khong?",
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        self._load_selected_config()
+
+    def _load_selected_config(self):
+        path = self._selected_config_path()
+        key = self._selected_config_key()
+        if not path:
+            return
+
+        if not os.path.exists(path):
+            self._config_editor_loading = True
+            self.editor_config.setPlainText("{}\n")
+            self._config_editor_loading = False
+            self._config_dirty = False
+            self._config_current_path = path
+            self._config_data_cache = {}
+            self.config_stack.setCurrentIndex(self._friendly_page_index(key))
+            self._populate_friendly_editor(key, {})
+            self.lbl_config_mode.setText("Mode: friendly")
+            self.lbl_config_status.setText("Status: new file template loaded")
+            return
+
+        try:
+            content = self._read_text_file(path)
+            parsed = {}
+            if path.lower().endswith(".json"):
+                try:
+                    parsed = json.loads(content)
+                except Exception:
+                    parsed = {}
+            self._config_editor_loading = True
+            self.editor_config.setPlainText(content)
+            self._config_editor_loading = False
+            self._config_data_cache = parsed if isinstance(parsed, dict) else {}
+            self.config_stack.setCurrentIndex(self._friendly_page_index(key))
+            self._populate_friendly_editor(key, self._config_data_cache)
+            self.lbl_config_mode.setText("Mode: friendly")
+            self._config_dirty = False
+            self._config_current_path = path
+            self.lbl_config_status.setText(f"Status: loaded {os.path.basename(path)}")
+        except Exception as exc:
+            self._config_editor_loading = False
+            QMessageBox.warning(self, "Thong bao", str(exc))
+
+    def _format_selected_json(self):
+        path = self._selected_config_path() or ""
+        if self.config_stack.currentIndex() != 5:
+            QMessageBox.information(self, "Thong bao", "Dang o che do friendly. Bat Advanced JSON de format.")
+            return
+        if not path.lower().endswith(".json"):
+            QMessageBox.information(self, "Thong bao", "Format JSON chi ap dung cho file .json")
+            return
+
+        raw = self.editor_config.toPlainText()
+        try:
+            obj = json.loads(raw)
+        except Exception as exc:
+            QMessageBox.warning(self, "Thong bao", f"JSON khong hop le: {exc}")
+            return
+
+        pretty = json.dumps(obj, ensure_ascii=False, indent=2)
+        self._config_editor_loading = True
+        self.editor_config.setPlainText(pretty + "\n")
+        self._config_editor_loading = False
+        self._config_dirty = True
+        self.lbl_config_status.setText("Status: formatted (unsaved)")
+
+    def _save_selected_config(self):
+        path = self._selected_config_path()
+        key = self._selected_config_key()
+        if not path:
+            return
+
+        if self.config_stack.currentIndex() == 5:
+            content = self.editor_config.toPlainText()
+            if path.lower().endswith(".json"):
+                try:
+                    obj = json.loads(content)
+                    content = json.dumps(obj, ensure_ascii=False, indent=2) + "\n"
+                except Exception as exc:
+                    QMessageBox.warning(self, "Thong bao", f"JSON khong hop le, khong the save: {exc}")
+                    return
+        else:
+            base = self._config_data_cache if isinstance(self._config_data_cache, dict) else {}
+            obj = self._collect_friendly_editor(key, base)
+            content = json.dumps(obj, ensure_ascii=False, indent=2) + "\n"
+
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            self._write_text_file_safe(path, content)
+            self._config_dirty = False
+            self._config_current_path = path
+            self.lbl_config_status.setText(f"Status: saved {os.path.basename(path)}")
+            self._append_log(f"[GUI] Saved config: {path}")
+            try:
+                self._config_data_cache = json.loads(content)
+            except Exception:
+                self._config_data_cache = {}
+
+            # Auto refresh overlay nếu user sửa map_data-related config ảnh hưởng trực quan.
+            if os.path.basename(path) == "hard_dig_plan.json":
+                self._load_hard_dig_plan_into_canvas()
+        except Exception as exc:
+            QMessageBox.warning(self, "Thong bao", f"Khong save duoc config: {exc}")
 
     def _set_buttons_for_running(self):
         self.btn_start.setEnabled(False)
@@ -937,6 +1395,13 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         try:
             self.stop_bot()
+        except Exception:
+            pass
+        try:
+            if self.hard_planner_window is not None:
+                self.hard_planner_window.close()
+            if self.config_editor_window is not None:
+                self.config_editor_window.close()
         except Exception:
             pass
         super().closeEvent(event)

@@ -23,6 +23,37 @@ def run_bot_loop(
     map_new_city_xy=None,
     command_queue=None,
 ):
+    def _is_stopped():
+        return stop_event is not None and stop_event.is_set()
+
+    def _pause_gate():
+        """Chặn vòng lặp khi pause được bật; trả True nếu nhận stop trong lúc pause."""
+        while pause_event is not None and pause_event.is_set():
+            if state_callback:
+                state_callback({
+                    **bot_state,
+                    "engine_paused": True,
+                    "ts": time.time(),
+                })
+            if _is_stopped():
+                return True
+            time.sleep(0.2)
+        return False
+
+    def _controlled_sleep(seconds):
+        """Sleep có thể bị ngắt bởi pause/stop để phản hồi UI nhanh hơn."""
+        end_ts = time.time() + max(0.0, float(seconds))
+        while time.time() < end_ts:
+            if _is_stopped():
+                return True
+            if _pause_gate():
+                return True
+            remain = end_ts - time.time()
+            if remain <= 0:
+                break
+            time.sleep(min(0.2, remain))
+        return _is_stopped()
+
     print("--- KHỞI ĐỘNG SUPER BOT NTA ---")
     # 1. Khởi tạo Bản đồ số ngay từ đầu (Tương tác qua Terminal)
     map_manager = MapManager()
@@ -77,19 +108,13 @@ def run_bot_loop(
 
     # === VÒNG LẶP VÔ TẬN (GAME LOOP) ===
     while True:
-        if stop_event is not None and stop_event.is_set():
+        if _is_stopped():
             print("[BOT] Nhận yêu cầu dừng từ GUI. Kết thúc vòng lặp chính.")
             break
 
-        if pause_event is not None and pause_event.is_set():
-            if state_callback:
-                state_callback({
-                    **bot_state,
-                    "engine_paused": True,
-                    "ts": time.time(),
-                })
-            time.sleep(0.5)
-            continue
+        if _pause_gate():
+            print("[BOT] Nhận yêu cầu dừng trong lúc pause. Kết thúc vòng lặp chính.")
+            break
 
         if command_queue is not None:
             for _ in range(32):
@@ -155,6 +180,9 @@ def run_bot_loop(
         # =========================================================
         # ƯU TIÊN 1: CHIẾN ĐẤU (DIG) - LOGIC PHỨC TẠP NHẤT
         # =========================================================
+        if _pause_gate():
+            print("[BOT] Dừng trong lúc chờ trước task combat.")
+            break
 
 
         # Case 1: Đang rảnh và hết thời gian hồi chiêu -> Đi tìm đất
@@ -290,6 +318,9 @@ def run_bot_loop(
         # =========================================================
         # ƯU TIÊN 2: DAILY TASK (Cho phép chạy cả khi đang chờ combat/retreat)
         # =========================================================
+        if _pause_gate():
+            print("[BOT] Dừng trong lúc chờ trước task daily.")
+            break
 
         # 1. Vòng quay
         if time.time() >= bot_state["next_spin_time"]:
@@ -310,6 +341,9 @@ def run_bot_loop(
         # =========================================================
         # ƯU TIÊN 3: XÂY DỰNG (BUILDER)
         # =========================================================
+        if _pause_gate():
+            print("[BOT] Dừng trong lúc chờ trước task builder.")
+            break
 
         # Theo logic mới: Build có thể chạy song song khi đang chờ combat/retreat
         if time.time() >= bot_state["builder_free_time"]:
@@ -319,6 +353,10 @@ def run_bot_loop(
 
                 # Chỉ rời thành khi đã tìm được tác vụ build/upgrade thực sự hoặc gặp lỗi.
                 while bot_state["build_index"] < len(BUILD_SEQUENCE):
+                    if _pause_gate():
+                        print("[BOT] Dừng trong lúc pause ở vòng builder.")
+                        break
+
                     task = BUILD_SEQUENCE[bot_state["build_index"]]
 
                     target = task["target_lv"]
@@ -354,7 +392,9 @@ def run_bot_loop(
 
         # Nghỉ ngơi chung
         print("> Bot ngủ 5 giây...")
-        time.sleep(5)
+        if _controlled_sleep(5):
+            print("[BOT] Kết thúc vòng lặp do stop trong lúc sleep.")
+            break
 
 
 def main():
