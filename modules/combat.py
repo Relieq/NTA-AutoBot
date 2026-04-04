@@ -1090,6 +1090,149 @@ class CombatManager:
         candidates.sort(key=lambda c: (c["rank"], c.get("distance_to_city", 999999), c["x"], c["y"]))
         return candidates
 
+    def prepare_hard_dig_targets(self, start_tile, targets):
+        """
+        Chuẩn hóa và sắp xếp target Hard-Dig theo chiến lược lân cận gần nhất:
+        bắt đầu từ ô khởi đầu, sau đó luôn chọn ô gần ô vừa chiếm xong nhất.
+        """
+        try:
+            sx, sy = int(start_tile[0]), int(start_tile[1])
+        except Exception:
+            return {"status": "INVALID", "ordered_targets": [], "reason": "start_tile_invalid"}
+
+        dedup = set()
+        normalized = []
+        for item in targets or []:
+            try:
+                tx, ty = int(item[0]), int(item[1])
+            except Exception:
+                continue
+            if tx < 0 or tx > 600 or ty < 0 or ty > 600:
+                continue
+            key = (tx, ty)
+            if key in dedup:
+                continue
+            dedup.add(key)
+            normalized.append(key)
+
+        start_key = (sx, sy)
+        if 0 <= sx <= 600 and 0 <= sy <= 600 and start_key not in dedup:
+            # Đảm bảo đúng yêu cầu: luôn bắt đầu chiếm từ ô khởi đầu.
+            dedup.add(start_key)
+            normalized.append(start_key)
+
+        if not normalized:
+            return {"status": "INVALID", "ordered_targets": [], "reason": "targets_empty"}
+
+        remaining = set(normalized)
+        if start_key in remaining:
+            current = start_key
+        else:
+            # Fallback: nếu start không hợp lệ/ngoài map thì lấy điểm gần start nhất để khởi hành.
+            current = min(remaining, key=lambda p: (abs(p[0] - sx) + abs(p[1] - sy), p[0], p[1]))
+
+        ordered_points = [current]
+        remaining.remove(current)
+
+        while remaining:
+            nxt = min(
+                remaining,
+                key=lambda p: (abs(p[0] - current[0]) + abs(p[1] - current[1]), p[0], p[1]),
+            )
+            ordered_points.append(nxt)
+            remaining.remove(nxt)
+            current = nxt
+
+        ordered = [{"x": int(x), "y": int(y)} for x, y in ordered_points]
+        return {
+            "status": "READY",
+            "start_tile": [sx, sy],
+            "ordered_targets": ordered,
+        }
+
+    def dispatch_hard_dig_target(self, target, debug=None):
+        """
+        Hard-Dig: đánh thẳng vào target do người dùng chọn.
+        Bỏ qua scan_and_dig/OCR độ khó, chỉ cần thấy nút Chiếm là xuất quân.
+        """
+        try:
+            target_x, target_y = int(target["x"]), int(target["y"])
+        except Exception:
+            return {"status": "FAILED", "reason": "invalid_target"}
+
+        print(f"   [HARD-DIG] Đang xử lý target ({target_x}, {target_y})...")
+        self.jump_to_coordinate(target_x, target_y)
+
+        cx, cy = self.screen_w // 2, self.screen_h // 2
+        self.device.tap(cx, cy)
+        time.sleep(1.5)
+        screen = self.device.take_screenshot()
+        btn_chiem_pos = self.vision.find_template(screen, self._get_path("btn_chiem.png"))
+
+        if self._should_debug(debug):
+            debug_img = screen.copy()
+            cv2.circle(debug_img, (cx, cy), 8, (255, 255, 255), -1)
+            cv2.putText(debug_img, "HARD-DIG TAP", (cx + 12, cy - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            self._draw_detection_box(debug_img, btn_chiem_pos, "btn_chiem.png", "btn_chiem", (0, 255, 0))
+            out_path = os.path.join(os.getcwd(), "debug_img", "debug_hard_dig_target.png")
+            cv2.imwrite(out_path, debug_img)
+
+        if not btn_chiem_pos:
+            print("   [HARD-DIG] Không thấy nút Chiếm tại target. Bỏ qua target này.")
+            self.device.tap(cx, cy)
+            return {"status": "NO_TARGET", "target": (target_x, target_y)}
+
+        # Hard-Dig vẫn OCR độ khó để dự đoán battle duration chính xác hơn.
+        # Chỉ dùng cho timing/cảnh báo lần đầu theo tier, không dùng để blacklist/skip target.
+        diff_info = self.analyze_difficulty(screen, btn_chiem_pos, debug=False)
+        hard_tier_key = diff_info.get("tier_key", "") if isinstance(diff_info, dict) else ""
+        hard_label = diff_info.get("label", "") if isinstance(diff_info, dict) else ""
+        if hard_label:
+            print(f"   [HARD-DIG] Độ khó OCR: {hard_label} (tier_key={hard_tier_key or 'unknown'})")
+        else:
+            print("   [HARD-DIG] Không parse được độ khó, fallback battle duration mặc định.")
+
+        dispatch_status = self.dispatch_troops(btn_chiem_pos, tier_key=hard_tier_key, debug=debug)
+        dispatch_result = dispatch_status if isinstance(dispatch_status, dict) else {
+            "status": "SUCCESS" if dispatch_status is True else str(dispatch_status),
+            "max_travel_time": 0,
+            "selected_count": 0,
+        }
+        dispatch_key = dispatch_result.get("status", "FAILED")
+
+        if dispatch_key == "SUCCESS":
+            self.map.update_tile(target_x, target_y, "OWNED")
+            battle_seconds = self._get_battle_duration_seconds(hard_tier_key)
+            predicted_wait = int(dispatch_result.get("max_travel_time", 0)) + battle_seconds
+            print(
+                f"   [HARD-DIG] Dự đoán chờ trận: {dispatch_result.get('max_travel_time', 0)}s hành quân + "
+                f"{battle_seconds}s chiến đấu = {predicted_wait}s"
+            )
+            return {
+                "status": "SUCCESS",
+                "target": (target_x, target_y),
+                "difficulty": hard_label,
+                "tier_key": hard_tier_key,
+                "max_travel_time": int(dispatch_result.get("max_travel_time", 0)),
+                "battle_duration": battle_seconds,
+                "predicted_wait": predicted_wait,
+            }
+
+        if dispatch_key in {"INTERRUPTED", "FATAL"}:
+            return {
+                "status": dispatch_key,
+                "target": (target_x, target_y),
+                "max_travel_time": int(dispatch_result.get("max_travel_time", 0)),
+            }
+
+        self.device.tap(cx, cy)
+        return {
+            "status": "FAILED",
+            "target": (target_x, target_y),
+            "max_travel_time": int(dispatch_result.get("max_travel_time", 0)),
+        }
+
     def scan_and_dig(self):
         """Luồng Dig 2 pha: trinh sát -> chọn target -> xuất quân và trả về thời gian chờ dự đoán."""
 

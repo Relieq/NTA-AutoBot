@@ -1,5 +1,6 @@
 from core.device import DeviceManager
 from core.debug_cleaner import DebugImageCleaner
+from core.hard_dig import HardDigManager
 from core.map_core import MapManager
 from core.terminal import TerminalCleaner
 from core.vision import VisionManager
@@ -22,6 +23,7 @@ def main():
     vision = VisionManager()
     terminal_cleaner = TerminalCleaner()
     debug_cleaner = DebugImageCleaner()
+    hard_dig = HardDigManager()
 
     # Khởi tạo CaptchaSolver (template-driven spam strategy)
     print("--- KHỞI TẠO CAPTCHA SOLVER (SPAM ICON #1) ---")
@@ -32,6 +34,7 @@ def main():
     daily = DailyTaskManager(device, vision)
     scene = SceneManager(device, vision)
     combat = CombatManager(device, vision, map_manager, captcha_solver)
+    hard_dig.consume_auto_start_request()
 
     # === BỘ NHỚ TRẠNG THÁI (STATE MEMORY) ===
     bot_state = {
@@ -44,10 +47,16 @@ def main():
         "next_gold_time": .0,
 
         # Combat States
+        "combat_mode": "NORMAL",  # NORMAL | HARD_DIG
         "combat_status": "IDLE",  # IDLE, WAITING_RESULT, RETREATING
         "battle_finish_time": .0,
         "combat_cooldown": .0,  # Thời gian nghỉ sau mỗi trận
         "next_retreat_retry_time": .0,
+
+        # Hard-Dig States
+        "hard_dig_pending_activation": False,
+        "hard_dig_inflight_target": None,
+        "hard_dig_waiting_final_retreat": False,
     }
 
     # === VÒNG LẶP VÔ TẬN (GAME LOOP) ===
@@ -55,7 +64,31 @@ def main():
         now = time.time()
         terminal_cleaner.maybe_clear(now)
         debug_cleaner.maybe_cleanup(now)
+        if hard_dig.poll_hotkey_activation():
+            bot_state["hard_dig_pending_activation"] = True
         print("\n--- CHECKING TASKS ---")
+
+        if hard_dig.has_activation_request():
+            bot_state["hard_dig_pending_activation"] = True
+
+        # Hard-Dig chỉ takeover sau khi combat thường hoàn tất vòng hiện tại và trở về IDLE.
+        if bot_state["hard_dig_pending_activation"] and bot_state["combat_mode"] == "NORMAL":
+            if bot_state["combat_status"] == "IDLE":
+                prepared = hard_dig.prepare_run(combat)
+                if prepared.get("status") == "READY":
+                    bot_state["combat_mode"] = "HARD_DIG"
+                    bot_state["hard_dig_pending_activation"] = False
+                    bot_state["hard_dig_inflight_target"] = None
+                    bot_state["hard_dig_waiting_final_retreat"] = False
+                    print(f"> [HARD-DIG] Kích hoạt thành công. Tiến độ: {hard_dig.progress_text()}")
+                else:
+                    bot_state["hard_dig_pending_activation"] = False
+                    hard_dig.clear_activation_request()
+                    print(f"> [HARD-DIG] Không thể kích hoạt: {prepared.get('reason', 'prepare_failed')}")
+            else:
+                print(
+                    f"> [HARD-DIG] Đang chờ combat thường hoàn tất (status={bot_state['combat_status']}) trước khi takeover."
+                )
 
         # =========================================================
         # ƯU TIÊN 1: CHIẾN ĐẤU (DIG) - LOGIC PHỨC TẠP NHẤT
@@ -65,10 +98,24 @@ def main():
         # Case 1: Đang rảnh và hết thời gian hồi chiêu -> Đi tìm đất
         if bot_state["combat_status"] == "IDLE":
             if time.time() >= bot_state["combat_cooldown"]:
-                print("> [COMBAT] Đang rảnh. Ra map tìm đất hoang...")
-
-                # Gọi hàm tấn công
-                dig_result = combat.scan_and_dig()
+                if bot_state["combat_mode"] == "HARD_DIG":
+                    current_target = hard_dig.current_target()
+                    if not current_target:
+                        print("> [HARD-DIG] Đã xử lý hết danh sách target. Chuyển sang rút quân về thành chính...")
+                        bot_state["combat_status"] = "RETREATING"
+                        bot_state["hard_dig_waiting_final_retreat"] = True
+                        bot_state["next_retreat_retry_time"] = time.time()
+                        dig_result = {"status": "NO_TARGET"}
+                    else:
+                        print(
+                            f"> [HARD-DIG] Đánh target {hard_dig.progress_text()} -> "
+                            f"({current_target['x']},{current_target['y']})"
+                        )
+                        dig_result = combat.dispatch_hard_dig_target(current_target)
+                        bot_state["hard_dig_inflight_target"] = current_target
+                else:
+                    print("> [COMBAT] Đang rảnh. Ra map tìm đất hoang...")
+                    dig_result = combat.scan_and_dig()
                 dig_status = dig_result.get("status") if isinstance(dig_result, dict) else ("SUCCESS" if dig_result else "NO_TARGET")
 
                 if dig_status == "SUCCESS":
@@ -80,9 +127,29 @@ def main():
                 elif dig_status == "FATAL":
                     print("   > [COMBAT] Gặp lỗi nghiêm trọng khi xử lý combat. Nghỉ 60s rồi thử lại.")
                     bot_state["combat_cooldown"] = time.time() + 60
+                    if bot_state["combat_mode"] == "HARD_DIG":
+                        hard_dig.mark_error("fatal_dispatch")
+                elif dig_status == "INTERRUPTED":
+                    print("   > [COMBAT] Bị ngắt bởi Captcha. Thử lại sớm.")
+                    bot_state["combat_cooldown"] = time.time() + 3
                 else:
-                    print("   > Không tìm thấy đất ngon. Nghỉ 5 phút.")
-                    bot_state["combat_cooldown"] = time.time() + 300
+                    if bot_state["combat_mode"] == "HARD_DIG":
+                        current = bot_state.get("hard_dig_inflight_target") or hard_dig.current_target()
+                        if current:
+                            hard_dig.mark_target_skipped(current, dig_status)
+                        bot_state["hard_dig_inflight_target"] = None
+
+                        if hard_dig.is_finished():
+                            print("   > [HARD-DIG] Không còn target hợp lệ. Chuyển sang rút quân.")
+                            bot_state["combat_status"] = "RETREATING"
+                            bot_state["hard_dig_waiting_final_retreat"] = True
+                            bot_state["next_retreat_retry_time"] = time.time()
+                        else:
+                            print("   > [HARD-DIG] Bỏ qua target hiện tại, chuyển target kế tiếp.")
+                            bot_state["combat_cooldown"] = time.time() + 1
+                    else:
+                        print("   > Không tìm thấy đất ngon. Nghỉ 5 phút.")
+                        bot_state["combat_cooldown"] = time.time() + 300
             else:
                 wait = int(bot_state["combat_cooldown"] - time.time())
                 print(f"> [COMBAT] Đang nghỉ ngơi hồi sức (Còn {wait}s)")
@@ -93,9 +160,25 @@ def main():
             if remain > 0:
                 print(f"> [COMBAT] Đang chờ quân đánh... (Còn {remain}s)")
             else:
-                print("   [INFO] Hết thời gian chờ dự đoán. Chuyển sang rút quân.")
-                bot_state["combat_status"] = "RETREATING"
-                bot_state["next_retreat_retry_time"] = time.time()
+                if bot_state["combat_mode"] == "HARD_DIG":
+                    inflight = bot_state.get("hard_dig_inflight_target")
+                    if inflight:
+                        hard_dig.mark_target_completed(inflight)
+                        bot_state["hard_dig_inflight_target"] = None
+
+                    if hard_dig.is_finished():
+                        print("   [HARD-DIG] Đã xong toàn bộ target. Chuyển sang rút quân về thành chính.")
+                        bot_state["combat_status"] = "RETREATING"
+                        bot_state["hard_dig_waiting_final_retreat"] = True
+                        bot_state["next_retreat_retry_time"] = time.time()
+                    else:
+                        print(f"   [HARD-DIG] Hoàn thành 1 target. Tiếp tục target kế tiếp ({hard_dig.progress_text()}).")
+                        bot_state["combat_status"] = "IDLE"
+                        bot_state["combat_cooldown"] = time.time()
+                else:
+                    print("   [INFO] Hết thời gian chờ dự đoán. Chuyển sang rút quân.")
+                    bot_state["combat_status"] = "RETREATING"
+                    bot_state["next_retreat_retry_time"] = time.time()
 
         # Case 3: Rút quân về thành chính
         elif bot_state["combat_status"] == "RETREATING":
@@ -110,12 +193,21 @@ def main():
                     retreat_wait = int(retreat_result.get("max_travel_time", 0)) if isinstance(retreat_result, dict) else 0
                     bot_state["combat_cooldown"] = time.time() + retreat_wait
                     print(f"   [COMBAT] Cooldown sau retreat: {retreat_wait}s")
+
+                    if bot_state["combat_mode"] == "HARD_DIG" and bot_state["hard_dig_waiting_final_retreat"]:
+                        hard_dig.finish_run()
+                        bot_state["combat_mode"] = "NORMAL"
+                        bot_state["hard_dig_waiting_final_retreat"] = False
+                        bot_state["hard_dig_inflight_target"] = None
+                        print("> [HARD-DIG] Hoàn tất phiên hard-dig. Combat-dig thường đã được bật lại.")
                 elif retreat_status == "INTERRUPTED":
                     print("   [RETRY] Retreat bị ngắt do Captcha. Thử lại sau 5s.")
                     bot_state["next_retreat_retry_time"] = time.time() + 5
                 elif retreat_status == "FATAL":
                     print("   [FATAL] Retreat gặp lỗi nghiêm trọng. Lùi 60s trước khi thử lại.")
                     bot_state["next_retreat_retry_time"] = time.time() + 60
+                    if bot_state["combat_mode"] == "HARD_DIG":
+                        hard_dig.mark_error("fatal_retreat")
                 else:
                     print("   [RETRY] Rút quân lỗi. Thử lại sau 10s.")
                     bot_state["next_retreat_retry_time"] = time.time() + 10
