@@ -8,3 +8,4 @@ Pillow              # Xử lý ảnh bổ trợ
 easyocr             # OCR hỗ trợ tiếng Việt - ổn định, dễ cài
 torch               # PyTorch (backend cho EasyOCR)
 torchvision
+PySide6            # GUI Phase 1 (desktop app)

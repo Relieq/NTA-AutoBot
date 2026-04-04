@@ -38,10 +38,23 @@ class MapManager:
         # Các trạng thái có thể có:
         # OWNED (Đất mình), RESOURCE (Tài nguyên), ENEMY (Kẻ địch), OBSTACLE (Vật cản)
 
-    def load_or_create_map(self):
-        """Khởi tạo map từ file cũ hoặc tạo mới qua Terminal"""
+    def load_or_create_map(self, interactive=True, prefer_existing=None, new_city_coords=None):
+        """Khởi tạo map từ file cũ hoặc tạo mới qua Terminal/non-interactive mode."""
         if os.path.exists(self.map_file):
-            use_old = input(">>> Tìm thấy bản đồ cũ (map_data.json). Bạn có muốn sử dụng tiếp? (y/n): ").strip().lower()
+            if prefer_existing is None:
+                if interactive:
+                    try:
+                        use_old = input(
+                            ">>> Tìm thấy bản đồ cũ (map_data.json). Bạn có muốn sử dụng tiếp? (y/n): "
+                        ).strip().lower()
+                    except EOFError:
+                        # Khi chạy qua GUI/process không có stdin, mặc định dùng map cũ.
+                        use_old = "y"
+                else:
+                    use_old = "y"
+            else:
+                use_old = "y" if bool(prefer_existing) else "n"
+
             if use_old == 'y':
                 with open(self.map_file, 'r', encoding='utf-8-sig') as f:
                     data = json.load(f)
@@ -53,13 +66,31 @@ class MapManager:
 
         # Nếu chọn 'n' hoặc chưa có file
         print("--- KHỞI TẠO BẢN ĐỒ SỐ MỚI ---")
-        try:
-            x_str = input("Nhập tọa độ X của Thành Chính (ô góc dưới bên trái): ").strip()
-            y_str = input("Nhập tọa độ Y của Thành Chính (ô góc dưới bên trái): ").strip()
-            base_x, base_y = int(x_str), int(y_str)
-        except ValueError:
-            print("Tọa độ không hợp lệ, mặc định gán X=300, Y=300.")
-            base_x, base_y = 300, 300
+        if interactive:
+            try:
+                x_str = input("Nhập tọa độ X của Thành Chính (ô góc dưới bên trái): ").strip()
+                y_str = input("Nhập tọa độ Y của Thành Chính (ô góc dưới bên trái): ").strip()
+                base_x, base_y = int(x_str), int(y_str)
+            except ValueError:
+                print("Tọa độ không hợp lệ, mặc định gán X=300, Y=300.")
+                base_x, base_y = 300, 300
+            except EOFError:
+                print("Không có stdin, mặc định gán X=300, Y=300.")
+                base_x, base_y = 300, 300
+        else:
+            if (
+                isinstance(new_city_coords, (list, tuple))
+                and len(new_city_coords) == 2
+            ):
+                try:
+                    base_x, base_y = int(new_city_coords[0]), int(new_city_coords[1])
+                    print(f"[MAP] Non-interactive mode: tạo mới tại X={base_x}, Y={base_y}.")
+                except Exception:
+                    print("[MAP] Tọa độ GUI không hợp lệ, mặc định tạo mới tại X=300, Y=300.")
+                    base_x, base_y = 300, 300
+            else:
+                print("[MAP] Non-interactive mode: mặc định tạo mới tại X=300, Y=300.")
+                base_x, base_y = 300, 300
 
         self.main_city = (base_x, base_y)
         self.grid = {}

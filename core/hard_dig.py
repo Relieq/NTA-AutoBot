@@ -111,6 +111,52 @@ class HardDigManager:
         self._save_plan()
         print(f"[HARD-DIG] Đã nhận yêu cầu kích hoạt ({source}).")
 
+    def update_plan(self, start_tile, targets, enabled=True):
+        """Cập nhật plan hard-dig từ GUI/runtime command."""
+        normalized_targets = []
+        dedup = set()
+
+        for item in targets or []:
+            try:
+                x, y = int(item[0]), int(item[1])
+            except Exception:
+                continue
+            if not (0 <= x <= 600 and 0 <= y <= 600):
+                continue
+            key = (x, y)
+            if key in dedup:
+                continue
+            dedup.add(key)
+            normalized_targets.append([x, y])
+
+        try:
+            sx, sy = int(start_tile[0]), int(start_tile[1])
+            start_valid = 0 <= sx <= 600 and 0 <= sy <= 600
+        except Exception:
+            sx, sy = 300, 300
+            start_valid = False
+
+        if not start_valid:
+            return False
+
+        if [sx, sy] not in normalized_targets:
+            normalized_targets.append([sx, sy])
+
+        self.data["enabled"] = bool(enabled)
+        self.data["start_tile"] = [sx, sy]
+        self.data["targets"] = normalized_targets
+
+        runtime = self.data.get("runtime", {})
+        runtime["ordered_targets"] = []
+        runtime["completed_targets"] = []
+        runtime["skipped_targets"] = []
+        runtime["current_index"] = 0
+        runtime["last_error"] = ""
+        runtime["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        self.data["runtime"] = runtime
+
+        return self._save_plan()
+
     def consume_auto_start_request(self):
         if not self.data.get("auto_start_on_boot", False):
             return False

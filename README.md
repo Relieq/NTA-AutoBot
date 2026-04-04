@@ -40,6 +40,21 @@ python main.py
 
 `main.py` sẽ khởi tạo map/device/vision/captcha rồi chạy vòng lặp vô hạn.
 
+## 5.1) Chạy GUI Phase 1
+GUI desktop (PySide6) cho phép Start / Pause / Resume / Stop bot và xem log runtime trực tiếp.
+
+```powershell
+cd D:\PyCharm\Project\NTA-AutoBot
+.\.venv\Scripts\Activate.ps1
+python gui_app.py
+```
+
+Ghi chú:
+- Nút `Start` sẽ chạy bot ở process riêng để UI không bị treo.
+- `Pause` tạm dừng vòng lặp chính của bot; `Resume` tiếp tục.
+- `Stop` ưu tiên dừng mềm, quá timeout sẽ terminate process.
+- Trong lúc bot chạy qua GUI, map/config vẫn dùng cùng file như chạy `main.py`.
+
 ## 6) Cấu hình quan trọng
 ### Build order
 Sửa `config/build_order.py` (`BUILD_SEQUENCE`):

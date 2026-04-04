@@ -8,7 +8,7 @@
         "161,167": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775317510,
+            "last_updated": 1775321710,
             "distance_to_city": 0,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -20,7 +20,7 @@
         "162,167": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775317510,
+            "last_updated": 1775321710,
             "distance_to_city": 1,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -32,7 +32,7 @@
         "161,168": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775317510,
+            "last_updated": 1775321710,
             "distance_to_city": 1,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -44,7 +44,7 @@
         "162,168": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775317510,
+            "last_updated": 1775321710,
             "distance_to_city": 2,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -53,22 +53,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "160,168": {
+        "164,167": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775317549,
-            "distance_to_city": 2,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "160,169": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775317641,
+            "last_updated": 1775327475,
             "distance_to_city": 3,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -77,34 +65,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "161,169": {
+        "164,166": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775317726,
-            "distance_to_city": 2,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "162,169": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775317805,
-            "distance_to_city": 3,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "163,169": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775317880,
+            "last_updated": 1775327604,
             "distance_to_city": 4,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -113,10 +77,34 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "163,168": {
+        "164,165": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775317958,
+            "last_updated": 1775327778,
+            "distance_to_city": 5,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "163,165": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1775327963,
+            "distance_to_city": 4,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "162,165": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1775328153,
             "distance_to_city": 3,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -125,10 +113,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "163,167": {
+        "161,165": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775318036,
+            "last_updated": 1775328277,
             "distance_to_city": 2,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -137,10 +125,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "163,166": {
+        "160,165": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775318112,
+            "last_updated": 1775328376,
             "distance_to_city": 3,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -149,10 +137,34 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "162,166": {
+        "159,165": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775318192,
+            "last_updated": 1775328593,
+            "distance_to_city": 4,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "159,166": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1775328757,
+            "distance_to_city": 3,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "159,167": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1775328924,
             "distance_to_city": 2,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -161,11 +173,11 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "161,166": {
+        "159,168": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775318272,
-            "distance_to_city": 1,
+            "last_updated": 1775329025,
+            "distance_to_city": 3,
             "difficulty_normalized": "",
             "difficulty_valid": false,
             "difficulty_tier_key": "",
@@ -173,11 +185,83 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "160,166": {
+        "159,169": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775318347,
-            "distance_to_city": 2,
+            "last_updated": 1775329130,
+            "distance_to_city": 4,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "159,170": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1775329291,
+            "distance_to_city": 5,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "160,170": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1775329463,
+            "distance_to_city": 4,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "161,170": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1775329639,
+            "distance_to_city": 3,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "162,170": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1775330028,
+            "distance_to_city": 6,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "163,170": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1775329842,
+            "distance_to_city": 5,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "164,170": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1775330028,
+            "distance_to_city": 6,
             "difficulty_normalized": "",
             "difficulty_valid": false,
             "difficulty_tier_key": "",

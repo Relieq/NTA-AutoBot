@@ -11,13 +11,28 @@ from modules.scene import SceneManager
 from modules.combat import CombatManager
 from config.build_order import BUILD_SEQUENCE
 import time
+import queue
+from typing import Callable, Optional
 
 
-def main():
+def run_bot_loop(
+    stop_event=None,
+    pause_event=None,
+    state_callback: Optional[Callable[[dict], None]] = None,
+    map_prefer_existing=None,
+    map_new_city_xy=None,
+    command_queue=None,
+):
     print("--- KHỞI ĐỘNG SUPER BOT NTA ---")
     # 1. Khởi tạo Bản đồ số ngay từ đầu (Tương tác qua Terminal)
     map_manager = MapManager()
-    map_manager.load_or_create_map()
+    is_gui_mode = state_callback is not None
+    prefer_existing = map_prefer_existing if map_prefer_existing is not None else (True if is_gui_mode else None)
+    map_manager.load_or_create_map(
+        interactive=not is_gui_mode,
+        prefer_existing=prefer_existing,
+        new_city_coords=map_new_city_xy,
+    )
 
     device = DeviceManager()
     vision = VisionManager()
@@ -57,15 +72,62 @@ def main():
         "hard_dig_pending_activation": False,
         "hard_dig_inflight_target": None,
         "hard_dig_waiting_final_retreat": False,
+        "hard_dig_retry_count": 0,
     }
 
     # === VÒNG LẶP VÔ TẬN (GAME LOOP) ===
     while True:
+        if stop_event is not None and stop_event.is_set():
+            print("[BOT] Nhận yêu cầu dừng từ GUI. Kết thúc vòng lặp chính.")
+            break
+
+        if pause_event is not None and pause_event.is_set():
+            if state_callback:
+                state_callback({
+                    **bot_state,
+                    "engine_paused": True,
+                    "ts": time.time(),
+                })
+            time.sleep(0.5)
+            continue
+
+        if command_queue is not None:
+            for _ in range(32):
+                try:
+                    cmd = command_queue.get_nowait()
+                except queue.Empty:
+                    break
+
+                if not isinstance(cmd, dict):
+                    continue
+
+                ctype = str(cmd.get("type", "")).strip().upper()
+                if ctype == "ACTIVATE_HARD_DIG":
+                    hard_dig.request_activation("gui_button")
+                    bot_state["hard_dig_pending_activation"] = True
+                    print("[GUI-CMD] Đã nhận lệnh ACTIVATE_HARD_DIG.")
+                elif ctype == "UPDATE_HARD_DIG_PLAN":
+                    start_tile = cmd.get("start_tile", [300, 300])
+                    targets = cmd.get("targets", [])
+                    ok = hard_dig.update_plan(start_tile=start_tile, targets=targets, enabled=True)
+                    if ok:
+                        print(f"[GUI-CMD] Đã cập nhật hard-dig plan ({len(targets)} ô).")
+                    else:
+                        print("[GUI-CMD] Cập nhật hard-dig plan thất bại.")
+
         now = time.time()
         terminal_cleaner.maybe_clear(now)
         debug_cleaner.maybe_cleanup(now)
         if hard_dig.poll_hotkey_activation():
             bot_state["hard_dig_pending_activation"] = True
+
+        if state_callback:
+            state_callback({
+                **bot_state,
+                "engine_paused": False,
+                "ts": now,
+            })
+
         print("\n--- CHECKING TASKS ---")
 
         if hard_dig.has_activation_request():
@@ -123,6 +185,8 @@ def main():
                     print("   > Đã xuất quân! Chuyển trạng thái: CHỜ KẾT QUẢ")
                     bot_state["combat_status"] = "WAITING_RESULT"
                     bot_state["battle_finish_time"] = time.time() + predicted_wait
+                    if bot_state["combat_mode"] == "HARD_DIG":
+                        bot_state["hard_dig_retry_count"] = 0
                     print(f"   > Thời gian chờ dự đoán trận đánh: {predicted_wait}s")
                 elif dig_status == "FATAL":
                     print("   > [COMBAT] Gặp lỗi nghiêm trọng khi xử lý combat. Nghỉ 60s rồi thử lại.")
@@ -134,19 +198,25 @@ def main():
                     bot_state["combat_cooldown"] = time.time() + 3
                 else:
                     if bot_state["combat_mode"] == "HARD_DIG":
-                        current = bot_state.get("hard_dig_inflight_target") or hard_dig.current_target()
-                        if current:
-                            hard_dig.mark_target_skipped(current, dig_status)
                         bot_state["hard_dig_inflight_target"] = None
 
-                        if hard_dig.is_finished():
-                            print("   > [HARD-DIG] Không còn target hợp lệ. Chuyển sang rút quân.")
-                            bot_state["combat_status"] = "RETREATING"
-                            bot_state["hard_dig_waiting_final_retreat"] = True
-                            bot_state["next_retreat_retry_time"] = time.time()
+                        # Hard-Dig: không bỏ qua ô khi dispatch/tick lỗi, luôn retry sau một khoảng nghỉ.
+                        bot_state["hard_dig_retry_count"] = int(bot_state.get("hard_dig_retry_count", 0)) + 1
+                        retry_idx = bot_state["hard_dig_retry_count"]
+                        retry_wait = min(60, 5 + retry_idx * 5)
+                        bot_state["combat_cooldown"] = time.time() + retry_wait
+
+                        target = hard_dig.current_target()
+                        if target:
+                            print(
+                                f"   > [HARD-DIG] Dispatch lỗi ({dig_status}) tại ({target['x']},{target['y']}). "
+                                f"Sẽ thử lại sau {retry_wait}s (retry #{retry_idx})."
+                            )
                         else:
-                            print("   > [HARD-DIG] Bỏ qua target hiện tại, chuyển target kế tiếp.")
-                            bot_state["combat_cooldown"] = time.time() + 1
+                            print(
+                                f"   > [HARD-DIG] Dispatch lỗi ({dig_status}). "
+                                f"Sẽ thử lại sau {retry_wait}s (retry #{retry_idx})."
+                            )
                     else:
                         print("   > Không tìm thấy đất ngon. Nghỉ 5 phút.")
                         bot_state["combat_cooldown"] = time.time() + 300
@@ -173,6 +243,7 @@ def main():
                         bot_state["next_retreat_retry_time"] = time.time()
                     else:
                         print(f"   [HARD-DIG] Hoàn thành 1 target. Tiếp tục target kế tiếp ({hard_dig.progress_text()}).")
+                        bot_state["hard_dig_retry_count"] = 0
                         bot_state["combat_status"] = "IDLE"
                         bot_state["combat_cooldown"] = time.time()
                 else:
@@ -199,6 +270,7 @@ def main():
                         bot_state["combat_mode"] = "NORMAL"
                         bot_state["hard_dig_waiting_final_retreat"] = False
                         bot_state["hard_dig_inflight_target"] = None
+                        bot_state["hard_dig_retry_count"] = 0
                         print("> [HARD-DIG] Hoàn tất phiên hard-dig. Combat-dig thường đã được bật lại.")
                 elif retreat_status == "INTERRUPTED":
                     print("   [RETRY] Retreat bị ngắt do Captcha. Thử lại sau 5s.")
@@ -223,12 +295,16 @@ def main():
         if time.time() >= bot_state["next_spin_time"]:
             daily.do_lucky_wheel()
             bot_state["next_spin_time"] = time.time() + 600
+            if state_callback:
+                state_callback({**bot_state, "engine_paused": False, "ts": time.time()})
             continue
 
         # 2. Nhận vàng
         if time.time() >= bot_state["next_gold_time"]:
             daily.claim_free_gold()
             bot_state["next_gold_time"] = time.time() + 3600
+            if state_callback:
+                state_callback({**bot_state, "engine_paused": False, "ts": time.time()})
             continue
 
         # =========================================================
@@ -279,6 +355,10 @@ def main():
         # Nghỉ ngơi chung
         print("> Bot ngủ 5 giây...")
         time.sleep(5)
+
+
+def main():
+    run_bot_loop()
 
 
 if __name__ == "__main__":
