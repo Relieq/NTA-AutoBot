@@ -2,6 +2,7 @@ import io
 import queue
 import sys
 import traceback
+import os
 
 
 def _safe_put(q, item):
@@ -60,6 +61,18 @@ def run_bot_worker(
     map_new_city_xy=None,
     command_queue=None,
 ):
+    # Đảm bảo cwd luôn là thư mục app root để các đường dẫn tương đối (config/assets/third_party)
+    # hoạt động đúng cả khi chạy source và khi chạy bản đóng gói.
+    if getattr(sys, "frozen", False):
+        app_root = os.path.dirname(sys.executable)
+    else:
+        app_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+    try:
+        os.chdir(app_root)
+    except Exception:
+        pass
+
     from main import run_bot_loop
 
     old_stdout = sys.stdout

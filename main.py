@@ -9,7 +9,7 @@ from modules.captcha import CaptchaSolver
 from modules.daily_task import DailyTaskManager
 from modules.scene import SceneManager
 from modules.combat import CombatManager
-from config.build_order import BUILD_SEQUENCE
+from config.build_order import resolve_build_sequence
 import time
 import queue
 from typing import Callable, Optional
@@ -82,10 +82,13 @@ def run_bot_loop(
     combat = CombatManager(device, vision, map_manager, captcha_solver)
     hard_dig.consume_auto_start_request()
 
+    build_sequence, build_start_index, _build_runtime = resolve_build_sequence()
+    print(f"[BUILD-ORDER] Tong task: {len(build_sequence)} | Bat dau tu index: {build_start_index}")
+
     # === BỘ NHỚ TRẠNG THÁI (STATE MEMORY) ===
     bot_state = {
         # Builder States
-        "build_index": 0,
+        "build_index": build_start_index,
         "builder_free_time": .0,
 
         # Daily States
@@ -347,17 +350,17 @@ def run_bot_loop(
 
         # Theo logic mới: Build có thể chạy song song khi đang chờ combat/retreat
         if time.time() >= bot_state["builder_free_time"]:
-            if bot_state["build_index"] < len(BUILD_SEQUENCE):
+            if bot_state["build_index"] < len(build_sequence):
                 # Vào thành
                 scene.go_to_city()
 
                 # Chỉ rời thành khi đã tìm được tác vụ build/upgrade thực sự hoặc gặp lỗi.
-                while bot_state["build_index"] < len(BUILD_SEQUENCE):
+                while bot_state["build_index"] < len(build_sequence):
                     if _pause_gate():
                         print("[BOT] Dừng trong lúc pause ở vòng builder.")
                         break
 
-                    task = BUILD_SEQUENCE[bot_state["build_index"]]
+                    task = build_sequence[bot_state["build_index"]]
 
                     target = task["target_lv"]
                     name = task["name"]

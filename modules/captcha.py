@@ -7,10 +7,21 @@ import cv2
 
 class CaptchaSolver:
     def __init__(self, assets_dir="assets", debug_enabled=None, debug_dir="debug_img/captcha"):
-        self.assets_dir = assets_dir
+        self.assets_dir = self._resolve_assets_dir(assets_dir)
         env_debug = os.getenv("CAPTCHA_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}
         self.debug_enabled = env_debug if debug_enabled is None else bool(debug_enabled)
         self.debug_dir = os.path.abspath(debug_dir)
+
+    def _resolve_assets_dir(self, assets_dir):
+        candidates = [
+            os.path.abspath(assets_dir),
+            os.path.abspath(os.path.join(os.getcwd(), assets_dir)),
+            os.path.abspath(os.path.join(os.getcwd(), "_internal", assets_dir)),
+        ]
+        for p in candidates:
+            if os.path.isdir(p):
+                return p
+        return candidates[0]
 
     def _debug_subdir(self, subdir):
         path = os.path.join(self.debug_dir, subdir)

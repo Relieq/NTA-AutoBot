@@ -1,5 +1,7 @@
 import subprocess
 import time
+import os
+import sys
 from ppadb.client import Client as AdbClient
 import cv2
 import numpy as np
@@ -11,15 +13,40 @@ class DeviceManager:
     def __init__(self, host="127.0.0.1", port=5555):
         self.host = host
         self.port = port
+        self.adb_cmd = self._resolve_adb_command()
         self.start_adb_server()
         self.client = AdbClient(host="127.0.0.1", port=5037)  # Default ADB server port
         self.device = None
         self.connect()
 
+    def _resolve_adb_command(self):
+        """Ưu tiên adb bundled (source / dist root / PyInstaller _internal), fallback về PATH."""
+        candidates = []
+
+        cwd_root = os.getcwd()
+        candidates.append(os.path.abspath(os.path.join(cwd_root, "third_party", "platform-tools", "adb.exe")))
+        candidates.append(os.path.abspath(os.path.join(cwd_root, "_internal", "third_party", "platform-tools", "adb.exe")))
+
+        if getattr(sys, "frozen", False):
+            exe_root = os.path.dirname(sys.executable)
+            candidates.append(os.path.abspath(os.path.join(exe_root, "third_party", "platform-tools", "adb.exe")))
+            candidates.append(os.path.abspath(os.path.join(exe_root, "_internal", "third_party", "platform-tools", "adb.exe")))
+            meipass = getattr(sys, "_MEIPASS", "")
+            if meipass:
+                candidates.append(os.path.abspath(os.path.join(meipass, "third_party", "platform-tools", "adb.exe")))
+
+        for bundled in candidates:
+            if os.path.exists(bundled):
+                print(f"[ADB] Dùng adb bundled: {bundled}")
+                return bundled
+
+        print("[ADB] Không thấy adb bundled, fallback dùng adb từ PATH.")
+        return "adb"
+
     def start_adb_server(self):
         try:
-            # Gọi lệnh start-server bằng đường dẫn tuyệt đối
-            subprocess.run(["adb", "start-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # Gọi lệnh start-server bằng adb bundled/PATH đã resolve
+            subprocess.run([self.adb_cmd, "start-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except Exception as e:
             print(f"Loi start server: {e}")
 

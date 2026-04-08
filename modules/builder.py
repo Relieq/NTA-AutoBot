@@ -5,8 +5,11 @@ import re
 import unicodedata
 from datetime import datetime
 import easyocr
-from paddleocr import PaddleOCR
-from config.build_order import BUILD_SEQUENCE
+try:
+    from paddleocr import PaddleOCR
+except Exception:
+    PaddleOCR = None
+from config.build_order import resolve_build_sequence
 from modules.scene import SceneManager
 
 
@@ -15,13 +18,52 @@ class BuilderManager:
         self.device = device
         self.vision = vision
         self.captcha_solver = captcha_solver  # Nhận instance từ main.py
-        self.assets_dir = os.path.join(os.getcwd(), "assets")
+        self.assets_dir = self._resolve_assets_dir()
         env_debug = os.getenv("BUILDER_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}
         self.debug_enabled = env_debug if debug_enabled is None else bool(debug_enabled)
         self.debug_dir = os.path.abspath(debug_dir)
-        self.ocr = PaddleOCR(use_angle_cls=True, lang='en', enable_mkldnn=False)
+        self.ocr = None
+        if PaddleOCR is not None:
+            try:
+                self.ocr = PaddleOCR(use_angle_cls=True, lang='en', enable_mkldnn=False)
+                print("   [BUILDER] PaddleOCR init thành công.")
+            except Exception as exc:
+                print(f"   [BUILDER-WARN] PaddleOCR init lỗi, fallback EasyOCR: {exc}")
+        else:
+            print("   [BUILDER-WARN] Không import được PaddleOCR, fallback EasyOCR.")
         # OCR tên công trình tiếng Việt dùng EasyOCR để ổn định hơn với dấu.
         self.name_ocr = easyocr.Reader(['vi'], gpu=False, verbose=False)
+
+    def _resolve_assets_dir(self):
+        candidates = [
+            os.path.abspath(os.path.join(os.getcwd(), "assets")),
+            os.path.abspath(os.path.join(os.getcwd(), "_internal", "assets")),
+        ]
+        for p in candidates:
+            if os.path.isdir(p):
+                return p
+        return candidates[0]
+
+    def _ocr_predict_texts(self, image_bgr):
+        if image_bgr is None:
+            return []
+
+        if self.ocr is not None:
+            try:
+                output = self.ocr.predict(image_bgr)
+                results = list(output)
+                if results:
+                    return results[0].get('rec_texts', []) or []
+            except Exception as exc:
+                print(f"   [BUILDER-WARN] PaddleOCR predict lỗi, fallback EasyOCR: {exc}")
+
+        try:
+            rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+            results = self.name_ocr.readtext(rgb)
+            return [item[1] for item in results] if results else []
+        except Exception as exc:
+            print(f"   [BUILDER-ERR] EasyOCR predict lỗi: {exc}")
+            return []
 
     def _get_path(self, filename):
         return os.path.join(self.assets_dir, filename)
@@ -301,17 +343,8 @@ class BuilderManager:
             print(f"   [DEBUG] Đã lưu ảnh đã xử lý: {processed_debug_path}")
 
         # OCR đọc chữ
-        output = self.ocr.predict(processed_img)  # Đây là generator
-        results = list(output)  # Chuyển thành list để dễ handle (thường chỉ 1 result cho single image)
-
-        if not results:
-            print("   [OCR] Không có kết quả OCR.")
-            return None
-
-        res = results[0]  # Lấy result đầu tiên (cho single crop_img)
-
-        rec_texts = res.get('rec_texts', [])
-        rec_scores = res.get('rec_scores', [])
+        rec_texts = self._ocr_predict_texts(processed_img)
+        rec_scores = []
 
         if not rec_texts:
             print("   [OCR] Không phát hiện text nào.")
@@ -395,14 +428,7 @@ class BuilderManager:
             cv2.imwrite(debug_path, debug_img)
             print(f"   [DEBUG] Đã lưu ảnh debug: {debug_path}")
 
-        output = self.ocr.predict(processed_img)
-        results = list(output)
-
-        if not results:
-            return None
-
-        res = results[0]
-        rec_texts = res.get('rec_texts', [])
+        rec_texts = self._ocr_predict_texts(processed_img)
 
         if not rec_texts:
             return None
@@ -631,11 +657,15 @@ class BuilderManager:
     def execute_sequence(self):
         print("\n=== BẮT ĐẦU CHUỖI XÂY DỰNG ===")
 
+        build_sequence, start_index, _ = resolve_build_sequence()
+        if start_index > 0:
+            print(f"[BUILD-ORDER] Builder execute_sequence bat dau tu index {start_index}/{len(build_sequence)}")
+
         # Khởi tạo Scene Manager
         scene = SceneManager(self.device, self.vision)
         scene.go_to_city()
 
-        for task in BUILD_SEQUENCE:
+        for task in build_sequence[start_index:]:
             target = task["target_lv"]
             name = task["name"]
             display = task["type_name"]

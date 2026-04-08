@@ -1,165 +1,208 @@
 # NTA-AutoBot
 
-Bot tự động cho game Android chạy qua BlueStacks + ADB + nhận diện ảnh (OpenCV/OCR), không dùng API game.
+Bot tự động cho game Android theo hướng nhận diện ảnh (OpenCV + OCR), chạy qua BlueStacks + ADB, không dùng API game.
 
-## 1) Tổng quan
-- Entrypoint: `main.py`
-- Vòng lặp ưu tiên: `Combat -> DailyTask -> Builder`
-- Tác vụ dựa trên nhận diện UI trong `assets/`
-- Captcha dùng chiến lược thực dụng: **spam chọn icon #1**, bấm `btn_ok_captcha`, kiểm tra captcha đã biến mất chưa
+## 1) Tổng quan nhanh
+- Luồng chính: `Combat -> DailyTask -> Builder` (vòng lặp vô tận trong `main.py`).
+- Có GUI desktop (`gui_app.py`) để chạy bot, theo dõi log/state, cấu hình, và lập kế hoạch Hard-Dig.
+- Captcha dùng chiến lược thực dụng: spam chọn icon #1 + kiểm tra captcha còn hay không.
+- Hệ thống template matching đã có profile theo từng nút (`config/template_profiles.json`).
+- Builder hỗ trợ danh sách build động với điểm bắt đầu cấu hình bằng `start_index` (không cần comment thủ công).
 
-## 2) Kiến trúc chính
-- `core/device.py`: ADB (`tap`, `swipe`, `precise_drag`, screenshot)
-- `core/vision.py`: template matching đa scale + profile riêng từng template
-- `core/map_core.py`: dữ liệu map + cache metadata (`difficulty_rank`, `distance_to_city`)
-- `modules/scene.py`: chuyển map/city với verify sau thao tác
-- `modules/combat.py`: scan mục tiêu, OCR độ khó, dispatch/retreat, xử lý popup độ khó
-- `modules/builder.py`: build/upgrade theo `BUILD_SEQUENCE`, OCR level/time, OCR tên công trình
-- `modules/captcha.py`: detect captcha + solve theo spam strategy
+## 2) Kiến trúc project
+- `main.py`: khởi tạo manager, chạy state machine task, hỗ trợ pause/resume/stop từ GUI.
+- `core/device.py`: quản lý ADB, tap/swipe/drag/screenshot, ưu tiên dùng adb bundled.
+- `core/vision.py`: template matching đa scale, đa kênh (color/gray/edge), nạp profile threshold.
+- `core/map_core.py`: bản đồ số, cache tile info (state, difficulty, distance...), lưu `data/map_data.json`.
+- `core/hard_dig.py`: trạng thái và kế hoạch hard-dig runtime.
+- `core/gui_app.py`: giao diện chính + cửa sổ Hard-Dig Planner + cửa sổ Config Editor.
+- `core/gui_bridge.py`: chạy bot ở process riêng và stream log/state về GUI.
+- `modules/combat.py`: scan target, OCR độ khó, dispatch/retreat, timing combat, hard-dig dispatch.
+- `modules/builder.py`: build/upgrade, OCR level/time/tên công trình, bỏ qua tác vụ đã hoàn thành.
+- `modules/daily_task.py`: vòng quay + nhận vàng định kỳ.
+- `modules/captcha.py`: detect captcha và giải theo luồng spam icon #1.
 
 ## 3) Yêu cầu môi trường
-- Windows + BlueStacks
-- Python 3.12+
-- Có `adb` trong PATH (hoặc cài Android Platform Tools)
+- Windows (PowerShell), BlueStacks đang chạy.
+- Python 3.12+.
+- Đủ CPU/RAM cho OpenCV + OCR (PaddleOCR/EasyOCR/Torch).
+- Nếu đóng gói: có `third_party/platform-tools/adb.exe` để bundle ADB.
 
-## 4) Cài đặt
+## 4) Cài đặt từ source
 ```powershell
-cd D:\PyCharm\Project\NTA-AutoBot
+cd "D:\PyCharm\Project\NTA-AutoBot"
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 5) Chạy bot
+## 5) Cách chạy bot
+
+### 5.1 Chạy bằng GUI (khuyến nghị)
 ```powershell
-cd D:\PyCharm\Project\NTA-AutoBot
-.\.venv\Scripts\Activate.ps1
-python main.py
-```
-
-`main.py` sẽ khởi tạo map/device/vision/captcha rồi chạy vòng lặp vô hạn.
-
-## 5.1) Chạy GUI Phase 1
-GUI desktop (PySide6) cho phép Start / Pause / Resume / Stop bot và xem log runtime trực tiếp.
-
-```powershell
-cd D:\PyCharm\Project\NTA-AutoBot
+cd "D:\PyCharm\Project\NTA-AutoBot"
 .\.venv\Scripts\Activate.ps1
 python gui_app.py
 ```
 
-Ghi chú:
-- Nút `Start` sẽ chạy bot ở process riêng để UI không bị treo.
-- `Pause` tạm dừng vòng lặp chính của bot; `Resume` tiếp tục.
-- `Stop` ưu tiên dừng mềm, quá timeout sẽ terminate process.
-- Trong lúc bot chạy qua GUI, map/config vẫn dùng cùng file như chạy `main.py`.
-
-## 6) Cấu hình quan trọng
-### Build order
-Sửa `config/build_order.py` (`BUILD_SEQUENCE`):
-- `name`: template building (không cần `.png`)
-- `target_lv`: level mục tiêu
-- `type_name`: tên hiển thị log
-
-### Template profile theo từng nút
-Sửa `config/template_profiles.json` để tune threshold/scales/weights cho từng template.
-
-Ví dụ:
-```json
-{
-  "default": {
-    "threshold": 0.6,
-    "scales": [1.0, 0.95, 1.05],
-    "weights": { "color": 1.0, "gray": 1.0, "edge": 0.98 }
-  },
-  "templates": {
-    "btn_chiem.png": { "threshold": 0.67 },
-    "checkbox_unchecked.png": {
-      "find_all": { "threshold": 0.75, "min_distance": 18 }
-    }
-  }
-}
+### 5.2 Chạy bằng CLI
+```powershell
+cd "D:\PyCharm\Project\NTA-AutoBot"
+.\.venv\Scripts\Activate.ps1
+python main.py
 ```
 
-### Combat timing + blacklist
-- `config/combat_timing.json`: thời gian chiến đấu theo tier
-- `config/combat_difficulty_blacklist.json`: bật/tắt theo tier và level
-- `config/combat_first_dispatch_status.json`: trạng thái đã gặp popup cảnh báo lần đầu theo từng dải độ khó
+## 6) Hướng dẫn sử dụng GUI
 
-### Runtime housekeeping
-Sửa `config/runtime.json`:
-- `terminal_auto_clear_enabled`, `terminal_auto_clear_interval_seconds`
-- `debug_auto_cleanup_enabled`, `debug_auto_cleanup_interval_seconds`, `debug_auto_cleanup_keep_hours`
+### 6.1 Cửa sổ chính
+- Chọn `Dùng map cũ` hoặc `Tạo map mới` + nhập `X/Y`.
+- `Start`: chạy bot process.
+- `Pause` / `Resume`: tạm dừng / tiếp tục theo cơ chế cooperative.
+- `Stop`: dừng mềm, quá timeout sẽ terminate process.
+- `Live Log`: hiển thị stdout/stderr/runtime state.
+- Nút `?` góc trên phải: xem hướng dẫn nhanh của cửa sổ chính.
 
-## 7) Captcha (chiến lược hiện tại)
-`modules/captcha.py` không còn dùng model. Luồng xử lý:
-1. Detect captcha bằng `assets/title_captcha.png`
-2. Trong lúc captcha còn mở (còn thấy `btn_ok_captcha`):
-   - tap icon #1
-   - tap nút OK
-3. Sau mỗi vòng, chụp lại màn hình và kiểm tra `btn_ok_captcha` còn hay không
+### 6.2 Hard-Dig Planner (cửa sổ riêng)
+- Mở bằng `Open Hard-Dig Planner`.
+- Chế độ thao tác:
+  - `Tô màu`: chọn ô mục tiêu.
+  - `Xóa`: bỏ chọn.
+  - `Chọn ô bắt đầu`: chọn ô đầu tiên trong chuỗi hard-dig.
+- Hỗ trợ map:
+  - Zoom +/-.
+  - Trục tọa độ + tooltip tọa độ.
+  - Overlay trạng thái từ `data/map_data.json` (`Reload map_data`).
+- Lưu và kích hoạt:
+  - `Lưu plan Hard-Dig` -> ghi `config/hard_dig_plan.json`.
+  - `Kích hoạt Hard-Dig` -> gửi command runtime.
+- Nút `?` góc trên phải: xem hướng dẫn riêng cho Hard-Dig Planner.
 
-Các file asset bắt buộc:
-- `assets/title_captcha.png`
-- `assets/btn_ok_captcha.png`
+### 6.3 Config Editor (cửa sổ riêng)
+- Mở bằng `Open Config Editor`.
+- Chọn file config trong dropdown, bấm `Load`.
+- Có 2 chế độ:
+  - Friendly (form): chỉnh nhanh các trường phổ biến.
+  - Advanced JSON: chỉnh trực tiếp file JSON.
+- `Save`: ghi file an toàn + backup `.bak_YYYYMMDD_HHMMSS`.
+- Nút `?` góc trên phải: xem hướng dẫn riêng cho Config Editor.
 
-## 8) Debug
-### Vision
+## 7) Cấu hình quan trọng
+- `config/runtime.json`: dọn terminal và ảnh debug theo chu kỳ.
+- `config/template_profiles.json`: threshold/scale/weights theo từng template.
+- `config/combat_timing.json`: thời gian chiến đấu theo từng dải độ khó.
+- `config/combat_difficulty_blacklist.json`: bật/tắt blacklist theo tier/level.
+- `config/combat_first_dispatch_status.json`: đánh dấu popup cảnh báo độ khó lần đầu theo tier.
+- `config/hard_dig_plan.json`: kế hoạch hard-dig.
+- `config/build_order.py`: danh sách gốc `BUILD_SEQUENCE`.
+- `config/build_order_runtime.json`: điểm bắt đầu builder (`start_index`).
+
+### 7.1 Chọn điểm bắt đầu Builder
+- Trong Config Editor, chọn `build_order_runtime.json`.
+- Dùng Step Picker (danh sách nút “Bước X: ...”) để bấm chọn điểm bắt đầu.
+- Giá trị lưu dưới dạng `start_index` (0-based).
+
+## 8) Captcha (trạng thái hiện tại)
+- Không dùng model phân loại captcha.
+- Luồng xử lý:
+  1) Detect captcha bằng `assets/title_captcha.png`.
+  2) Nếu còn `btn_ok_captcha`, bot chọn icon #1 rồi bấm OK.
+  3) Kiểm tra lại, lặp đến khi captcha biến mất hoặc hết lượt thử.
+
+## 9) Debug và hiệu chỉnh
+
+### 9.1 Vision
 ```powershell
 $env:VISION_DEBUG = "1"
 python main.py
 ```
-Ảnh debug ở `debug_img/vision`.
+Ảnh ở `debug_img/vision`.
 
-### Combat
+### 9.2 Combat
 ```powershell
 $env:COMBAT_DEBUG = "1"
 python main.py
 ```
-Ảnh debug ở `debug_img/combat` (overlay OCR time, processed OCR, checkbox rounds, retreat checks).
+Ảnh ở `debug_img/combat`.
 
-### Builder
+### 9.3 Builder
 ```powershell
 $env:BUILDER_DEBUG = "1"
 python main.py
 ```
-Ảnh debug ở `debug_img/builder`.
+Ảnh ở `debug_img/builder`.
 
-### Captcha
+### 9.4 Captcha
 ```powershell
 $env:CAPTCHA_DEBUG = "1"
 python main.py
 ```
-Ảnh debug ở `debug_img/captcha/spam` theo từng attempt (`before`, `after_pick`, `after_ok`).
+Ảnh ở `debug_img/captcha/spam`.
 
-## 9) Công cụ tiện ích
-### Migrate cache map một lần (khi đổi schema/cache)
+## 10) Đóng gói ứng dụng
+
+### 10.1 Build bằng PyInstaller
+Project đã có script `build.ps1`:
+
+```powershell
+cd "D:\PyCharm\Project\NTA-AutoBot"
+.\build.ps1
+```
+
+Lệnh trong script:
+```powershell
+cd "D:\PyCharm\Project\NTA-AutoBot"
+Remove-Item -Recurse -Force "build","dist" -ErrorAction SilentlyContinue
+python.exe -m PyInstaller --noconfirm --clean "NTA-AutoBot.spec"
+```
+
+### 10.2 Test bản dist
+```powershell
+cd "D:\PyCharm\Project\NTA-AutoBot\dist\NTA-AutoBot"
+.\NTA-AutoBot.exe
+```
+
+Checklist test nhanh:
+- GUI mở bình thường.
+- Bấm Start bot chạy được.
+- Log có dòng dùng adb bundled (nếu đã bundle `third_party/platform-tools`).
+
+### 10.3 Build installer bằng Inno Setup
+Script installer: `installer/NTA-AutoBot.iss`
+
+```powershell
+cd "D:\PyCharm\Project\NTA-AutoBot"
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" ".\installer\NTA-AutoBot.iss"
+```
+
+Output mặc định: `installer/installer_output/NTA-AutoBot-Setup.exe`
+
+## 11) Troubleshooting nhanh
+- Không kết nối ADB:
+  - kiểm tra BlueStacks và endpoint `127.0.0.1:5555`;
+  - kiểm tra có `adb.exe` bundled hoặc `adb` trong PATH.
+- OCR sai hoặc detect thiếu:
+  - bật debug tương ứng và xem ảnh trong `debug_img/`;
+  - tune `config/template_profiles.json` và ROI.
+- Hard-Dig không takeover:
+  - kiểm tra `hard_dig_plan.json` có `targets` + `start_tile` hợp lệ;
+  - kiểm tra log combat đang ở trạng thái nào.
+- Builder chạy sai điểm bắt đầu:
+  - kiểm tra `config/build_order_runtime.json` (`start_index`) hoặc chọn lại trong Step Picker GUI.
+
+## 12) Công cụ phụ trợ
+- Migrate map cache một lần:
 ```powershell
 python migrate_map_cache.py
 ```
-Kiểm tra trước (không ghi file):
+
+- Dry run migrate:
 ```powershell
 python migrate_map_cache.py --dry-run
 ```
 
-### Test captcha offline từ ảnh chụp
+- Test captcha offline từ ảnh:
 ```powershell
 python test_captcha_solver.py --image "debug_img\your_captcha_screen.png"
 ```
-Lưu ảnh preview riêng:
-```powershell
-python test_captcha_solver.py --image "debug_img\your_captcha_screen.png" --save-debug "debug_img\captcha_spam_preview.png"
-```
 
-## 10) Pattern phát triển nên giữ
-- Sau mỗi action quan trọng phải verify UI hậu thao tác.
-- Reuse helper hiện có thay vì viết flow one-off.
-- Mọi chỉnh threshold/toạ độ nên có ảnh debug đi kèm để tune nhanh.
-- Với map/combat: ưu tiên dữ liệu cache (`difficulty_*`, `distance_to_city`) trước khi OCR lại.
-
-## 11) Troubleshooting nhanh
-- Không kết nối ADB: kiểm tra BlueStacks, `adb devices`, host/port trong `DeviceManager`.
-- OCR sai: xem ảnh trong `debug_img/`, chỉnh ROI hoặc tiền xử lý OCR.
-- Tap sai: tune profile trong `config/template_profiles.json` trước khi sửa logic lớn.
-- Captcha chưa qua: kiểm tra 2 template `title_captcha.png` và `btn_ok_captcha.png`.

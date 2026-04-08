@@ -3,6 +3,7 @@ opencv-python
 numpy
 paddlepaddle        # Framework AI (Cho OCR) - Cần cài đúng bản CPU/GPU
 paddleocr           # Thư viện OCR
+paddlex[ocr]        # Dependency runtime cho PaddleOCR pipeline mới
 pyyaml
 Pillow              # Xử lý ảnh bổ trợ
 easyocr             # OCR hỗ trợ tiếng Việt - ổn định, dễ cài

@@ -6,7 +6,17 @@ class DailyTaskManager:
     def __init__(self, device_manager, vision_manager):
         self.device = device_manager
         self.vision = vision_manager
-        self.assets_dir = os.path.join(os.getcwd(), "assets")
+        self.assets_dir = self._resolve_assets_dir()
+
+    def _resolve_assets_dir(self):
+        candidates = [
+            os.path.abspath(os.path.join(os.getcwd(), "assets")),
+            os.path.abspath(os.path.join(os.getcwd(), "_internal", "assets")),
+        ]
+        for p in candidates:
+            if os.path.isdir(p):
+                return p
+        return candidates[0]
 
     def _get_path(self, filename):
         return os.path.join(self.assets_dir, filename)

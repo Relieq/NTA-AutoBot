@@ -5,7 +5,10 @@ import re
 from datetime import datetime
 import cv2
 import easyocr
-from paddleocr import PaddleOCR
+try:
+    from paddleocr import PaddleOCR
+except Exception:
+    PaddleOCR = None
 
 
 class CombatManager:
@@ -14,7 +17,7 @@ class CombatManager:
         self.vision = vision
         self.map = map_manager
         self.captcha_solver = captcha_solver  # Nhận instance từ main.py
-        self.assets_dir = os.path.join(os.getcwd(), "assets")
+        self.assets_dir = self._resolve_resource_dir("assets")
         env_debug = os.getenv("COMBAT_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}
         self.debug_enabled = env_debug if debug_enabled is None else bool(debug_enabled)
         self.debug_dir = os.path.abspath(debug_dir)
@@ -23,7 +26,15 @@ class CombatManager:
         # gpu=False để dùng CPU, đổi thành True nếu có GPU NVIDIA
         self.ocr = easyocr.Reader(['vi'], gpu=False, verbose=False)
         # OCR thời gian hành quân dùng PaddleOCR (ổn định hơn cho chuỗi thời gian ngắn).
-        self.time_ocr = PaddleOCR(use_angle_cls=True, lang='en', enable_mkldnn=False)
+        self.time_ocr = None
+        if PaddleOCR is not None:
+            try:
+                self.time_ocr = PaddleOCR(use_angle_cls=True, lang='en', enable_mkldnn=False)
+                print("   [COMBAT] PaddleOCR (time) init thành công.")
+            except Exception as exc:
+                print(f"   [COMBAT-WARN] PaddleOCR (time) init lỗi, fallback EasyOCR: {exc}")
+        else:
+            print("   [COMBAT-WARN] Không import được PaddleOCR, fallback EasyOCR cho time OCR.")
 
         # Cấu hình danh sách đen (Blacklist độ khó)
         self.combat_timing = self._load_json_config(
@@ -87,6 +98,49 @@ class CombatManager:
         self.screen_w = 1600
         self.screen_h = 900
 
+    def _resolve_resource_dir(self, name):
+        candidates = [
+            os.path.abspath(os.path.join(os.getcwd(), name)),
+            os.path.abspath(os.path.join(os.getcwd(), "_internal", name)),
+        ]
+        for p in candidates:
+            if os.path.isdir(p):
+                return p
+        return candidates[0]
+
+    def _resolve_config_path(self, relative_path):
+        candidates = [
+            os.path.abspath(os.path.join(os.getcwd(), relative_path)),
+            os.path.abspath(os.path.join(os.getcwd(), "_internal", relative_path)),
+        ]
+        for p in candidates:
+            if os.path.exists(p):
+                return p
+        return candidates[0]
+
+    def _ocr_time_text(self, processed_img):
+        if processed_img is None:
+            return ""
+
+        if self.time_ocr is not None:
+            try:
+                output = self.time_ocr.predict(processed_img)
+                results = list(output)
+                if results:
+                    rec_texts = results[0].get("rec_texts", [])
+                    return " ".join(rec_texts) if rec_texts else ""
+            except Exception as exc:
+                print(f"   [OCR-ERR] PaddleOCR time lỗi, fallback EasyOCR: {exc}")
+
+        try:
+            rgb = cv2.cvtColor(processed_img, cv2.COLOR_BGR2RGB)
+            results = self.ocr.readtext(rgb)
+            rec_texts = [item[1] for item in results] if results else []
+            return " ".join(rec_texts) if rec_texts else ""
+        except Exception as exc:
+            print(f"   [OCR-ERR] EasyOCR time fallback lỗi: {exc}")
+            return ""
+
     def _get_path(self, filename):
         return os.path.join(self.assets_dir, filename)
 
@@ -96,7 +150,7 @@ class CombatManager:
         return bool(debug_override)
 
     def _load_json_config(self, relative_path, default_value):
-        full_path = os.path.join(os.getcwd(), relative_path)
+        full_path = self._resolve_config_path(relative_path)
         if not os.path.exists(full_path):
             print(f"   [COMBAT] Không thấy '{relative_path}', dùng cấu hình mặc định.")
             return default_value
@@ -280,12 +334,7 @@ class CombatManager:
         processed_img = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
 
         try:
-            output = self.time_ocr.predict(processed_img)
-            results = list(output)
-            rec_texts = []
-            if results:
-                rec_texts = results[0].get("rec_texts", [])
-            text = " ".join(rec_texts) if rec_texts else ""
+            text = self._ocr_time_text(processed_img)
         except Exception as exc:
             print(f"   [OCR-ERR] Lỗi OCR thời gian hành quân: {exc}")
             self._save_travel_time_debug(

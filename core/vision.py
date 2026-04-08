@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import json
 import os
+import sys
 from datetime import datetime
 from typing import cast
 
@@ -20,11 +21,29 @@ class VisionManager:
             "edge": 0.98,
         }
         self._template_cache = {}
-        self.profile_path = os.path.abspath(profile_path)
+        self.profile_path = self._resolve_profile_path(profile_path)
         self.template_profiles = self._load_profiles(self.profile_path)
         env_debug = os.getenv("VISION_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}
         self.debug_enabled = env_debug if debug_enabled is None else bool(debug_enabled)
         self.debug_dir = os.path.abspath(debug_dir)
+
+    def _resolve_profile_path(self, profile_path):
+        candidates = [os.path.abspath(profile_path)]
+
+        if getattr(sys, "frozen", False):
+            exe_root = os.path.dirname(sys.executable)
+            candidates.append(os.path.abspath(os.path.join(exe_root, profile_path)))
+            candidates.append(os.path.abspath(os.path.join(exe_root, "_internal", profile_path)))
+            meipass = getattr(sys, "_MEIPASS", "")
+            if meipass:
+                candidates.append(os.path.abspath(os.path.join(meipass, profile_path)))
+
+        for p in candidates:
+            if os.path.exists(p):
+                return p
+
+        # fallback để message log hiển thị đường dẫn dễ hiểu
+        return candidates[0]
 
     def _load_profiles(self, profile_path):
         if not os.path.exists(profile_path):

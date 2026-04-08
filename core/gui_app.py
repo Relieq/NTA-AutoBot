@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 
 from core.gui_bridge import run_bot_worker
+from config.build_order import BUILD_SEQUENCE
 
 try:
     from PySide6.QtCore import QTimer, Signal
@@ -396,8 +397,10 @@ class MainWindow(QMainWindow):
         self._config_current_path = None
         self._config_data_cache = {}
         self._config_tiers = ["de", "nhap_mon", "thuong", "tang_bac", "kho", "dia_nguc"]
+        self._build_order_buttons = []
         self.config_file_options = {
             "runtime.json": os.path.abspath(os.path.join(os.getcwd(), "config", "runtime.json")),
+            "build_order_runtime.json": os.path.abspath(os.path.join(os.getcwd(), "config", "build_order_runtime.json")),
             "template_profiles.json": os.path.abspath(os.path.join(os.getcwd(), "config", "template_profiles.json")),
             "combat_timing.json": os.path.abspath(os.path.join(os.getcwd(), "config", "combat_timing.json")),
             "combat_difficulty_blacklist.json": os.path.abspath(os.path.join(os.getcwd(), "config", "combat_difficulty_blacklist.json")),
@@ -415,6 +418,14 @@ class MainWindow(QMainWindow):
         root = QWidget(self)
         self.setCentralWidget(root)
         layout = QVBoxLayout(root)
+
+        top_help_row = QHBoxLayout()
+        self.btn_help_main = QPushButton("?")
+        self.btn_help_main.setFixedWidth(28)
+        self.btn_help_main.clicked.connect(self._show_help_main)
+        top_help_row.addStretch(1)
+        top_help_row.addWidget(self.btn_help_main)
+        layout.addLayout(top_help_row)
 
         ctrl_box = QGroupBox("Dieu khien Bot")
         ctrl_layout = QHBoxLayout(ctrl_box)
@@ -607,6 +618,7 @@ class MainWindow(QMainWindow):
 
         self.config_stack = QStackedWidget()
         self.config_layout_runtime = {}
+        self.config_layout_build_order = {}
         self.config_layout_combat_timing = {}
         self.config_layout_blacklist = {}
         self.config_layout_first_dispatch = {}
@@ -627,6 +639,31 @@ class MainWindow(QMainWindow):
         runtime_form.addRow("debug_auto_cleanup_enabled", self.config_layout_runtime["debug_auto_cleanup_enabled"])
         runtime_form.addRow("debug_auto_cleanup_interval_seconds", self.config_layout_runtime["debug_auto_cleanup_interval_seconds"])
         runtime_form.addRow("debug_auto_cleanup_keep_hours", self.config_layout_runtime["debug_auto_cleanup_keep_hours"])
+
+        build_order_page = QWidget()
+        build_order_layout = QVBoxLayout(build_order_page)
+        build_order_form = QFormLayout()
+        self.config_layout_build_order["start_index"] = QSpinBox()
+        self.config_layout_build_order["start_index"].setRange(0, max(0, len(BUILD_SEQUENCE)))
+        self.config_layout_build_order["start_index"].valueChanged.connect(self._on_build_order_start_index_changed)
+        build_order_form.addRow("start_index", self.config_layout_build_order["start_index"])
+        build_order_layout.addLayout(build_order_form)
+
+        self.lbl_build_order_pick = QLabel("Step picker: chon mot buoc de dat diem bat dau")
+        build_order_layout.addWidget(self.lbl_build_order_pick)
+
+        self.lbl_build_order_preview = QLabel("Preview: -")
+        build_order_layout.addWidget(self.lbl_build_order_preview)
+
+        self.build_order_scroll = QScrollArea()
+        self.build_order_scroll.setWidgetResizable(True)
+        self.build_order_list_widget = QWidget()
+        self.build_order_list_layout = QVBoxLayout(self.build_order_list_widget)
+        self.build_order_list_layout.setContentsMargins(4, 4, 4, 4)
+        self.build_order_list_layout.setSpacing(6)
+        self.build_order_scroll.setWidget(self.build_order_list_widget)
+        build_order_layout.addWidget(self.build_order_scroll)
+        self._build_build_order_buttons()
 
         timing_page = QWidget()
         timing_form = QFormLayout(timing_page)
@@ -684,11 +721,13 @@ class MainWindow(QMainWindow):
         self.editor_config.textChanged.connect(self._on_config_text_changed)
 
         self.config_stack.addWidget(runtime_page)
+        self.config_stack.addWidget(build_order_page)
         self.config_stack.addWidget(timing_page)
         self.config_stack.addWidget(blacklist_page)
         self.config_stack.addWidget(first_dispatch_page)
         self.config_stack.addWidget(hard_dig_page)
         self.config_stack.addWidget(self.editor_config)
+        self._advanced_page_index = self.config_stack.count() - 1
         config_layout.addWidget(self.config_stack)
 
         self.lbl_config_status = QLabel("Status: idle")
@@ -696,6 +735,7 @@ class MainWindow(QMainWindow):
 
         for widget in (
             *self.config_layout_runtime.values(),
+            *self.config_layout_build_order.values(),
             *self.config_layout_combat_timing.values(),
             *self.config_layout_blacklist.values(),
             *self.config_layout_first_dispatch.values(),
@@ -723,6 +763,46 @@ class MainWindow(QMainWindow):
         self._reload_hard_dig_overlay(show_feedback=False)
         self._load_selected_config()
 
+    def _show_help_main(self):
+        text = (
+            "--- HƯỚNG DẪN ĐIỀU KHIỂN BOT ---\n\n"
+            "1) Start: Bắt đầu chạy bot. Bot sẽ tự động thực hiện các vòng lặp nhiệm vụ (Builder, Combat, Daily) dựa trên cấu hình.\n\n"
+            "2) Pause/Resume: Tạm dừng bot ngay lập tức mà không làm mất trạng thái. Bấm Resume để bot tiếp tục từ đúng điểm đang dừng.\n\n"
+            "3) Stop: Dừng hoàn toàn tiến trình. Nếu bấm Start lại, bot sẽ khởi động lại từ đầu.\n\n"
+            "4) Khởi tạo Map: Thiết lập Bản đồ số. Bạn có thể tải lại dữ liệu map đã quét (map_data.json) hoặc tạo map mới bằng cách nhập tọa độ X, Y của Thành Chính.\n\n"
+            "5) Open Hard-Dig Planner: Mở công cụ lập kế hoạch đánh chiếm thủ công. Dùng khi bạn muốn bot ưu tiên đánh các ô đất cụ thể thay vì tự động loang lỗ.\n\n"
+            "6) Open Config Editor: Mở cửa sổ quản lý cấu hình. Cho phép thay đổi thông số, chuỗi xây dựng hoặc trạng thái bot trực tiếp mà không cần sửa code.\n\n"
+            "7) Live Log: Bảng theo dõi trực tiếp các hành động bot đang làm, trạng thái lỗi (nếu có) và tiến độ thời gian thực."
+        )
+        QMessageBox.information(self, "Hướng dẫn - Giao diện chính", text)
+
+    def _show_help_hard(self):
+        parent = self.hard_planner_window if self.hard_planner_window is not None else self
+        text = (
+            "--- HƯỚNG DẪN HARD-DIG PLANNER ---\n\n"
+            "1) Tô màu (Draw): Nhấp hoặc kéo chuột trên lưới bản đồ để chọn các ô đất bạn muốn bot ưu tiên tấn công.\n\n"
+            "2) Xóa (Erase): Chế độ tẩy, dùng để loại bỏ các ô đất đã chọn nhầm khỏi kế hoạch.\n\n"
+            "3) Chọn ô bắt đầu: Chỉ định ô đất đầu tiên mà bot sẽ tiến hành đánh trong chuỗi kế hoạch này.\n\n"
+            "4) Zoom +/-: Phóng to hoặc thu nhỏ lưới bản đồ để quan sát bao quát hơn.\n\n"
+            "5) Lưu plan Hard-Dig: Ghi nhớ danh sách các ô đã chọn vào file 'config/hard_dig_plan.json' để bot có thể đọc và thực thi.\n\n"
+            "6) Kích hoạt Hard-Dig: Phát tín hiệu ưu tiên cho bot. Sau khi hoàn thành hành động hiện tại, bot sẽ tạm ngưng auto tự do và chuyển sang đánh theo kế hoạch này.\n\n"
+            "7) Reload map_data: Cập nhật lại màu sắc và trạng thái các ô đất (Đất mình, Tài nguyên, Địch...) mới nhất từ file data/map_data.json."
+        )
+        QMessageBox.information(parent, "Hướng dẫn - Hard-Dig Planner", text)
+
+    def _show_help_config(self):
+        parent = self.config_editor_window if self.config_editor_window is not None else self
+        text = (
+            "--- HƯỚNG DẪN CONFIG EDITOR ---\n\n"
+            "1) Load Config: Chọn file cấu hình từ danh sách (Combobox) và bấm 'Load' để hiển thị nội dung.\n\n"
+            "2) Friendly Mode: Chế độ giao diện trực quan, giúp bạn sửa nhanh các thông số cơ bản bằng ô nhập liệu mà không sợ sai cú pháp.\n\n"
+            "3) Toggle Advanced JSON: Chuyển sang chế độ chỉnh sửa trực tiếp mã nguồn JSON dành cho người dùng nắm rõ cấu trúc file.\n\n"
+            "4) Save: Lưu lại các thay đổi. Hệ thống sẽ tự động tạo một file sao lưu (.bak kèm timestamp) để phòng hờ trường hợp cần khôi phục.\n\n"
+            "5) Quản lý build_order: Khi chọn file 'build_order_runtime.json', bạn có thể theo dõi và can thiệp vào tiến độ xây dựng của Builder.\n\n"
+            "6) Step Picker (Build Order): Nhấp vào một bước bất kỳ trong danh sách công trình để ép bot bắt đầu xây từ bước đó ở lần chạy kế tiếp."
+        )
+        QMessageBox.information(parent, "Hướng dẫn - Config Editor", text)
+
     def _open_hard_planner_window(self):
         if self.hard_planner_window is None:
             self.hard_planner_window = QWidget()
@@ -730,6 +810,15 @@ class MainWindow(QMainWindow):
             self.hard_planner_window.resize(1080, 760)
             layout = QVBoxLayout(self.hard_planner_window)
             layout.setContentsMargins(8, 8, 8, 8)
+
+            top_row = QHBoxLayout()
+            top_row.addStretch(1)
+            self.btn_help_hard_window = QPushButton("?")
+            self.btn_help_hard_window.setFixedWidth(28)
+            self.btn_help_hard_window.clicked.connect(self._show_help_hard)
+            top_row.addWidget(self.btn_help_hard_window)
+            layout.addLayout(top_row)
+
             layout.addWidget(self.hard_box)
 
         self.hard_planner_window.show()
@@ -743,6 +832,15 @@ class MainWindow(QMainWindow):
             self.config_editor_window.resize(980, 700)
             layout = QVBoxLayout(self.config_editor_window)
             layout.setContentsMargins(8, 8, 8, 8)
+
+            top_row = QHBoxLayout()
+            top_row.addStretch(1)
+            self.btn_help_config_window = QPushButton("?")
+            self.btn_help_config_window.setFixedWidth(28)
+            self.btn_help_config_window.clicked.connect(self._show_help_config)
+            top_row.addWidget(self.btn_help_config_window)
+            layout.addLayout(top_row)
+
             layout.addWidget(self.config_box)
 
         self.config_editor_window.show()
@@ -759,22 +857,76 @@ class MainWindow(QMainWindow):
     def _friendly_page_index(self, key):
         mapping = {
             "runtime.json": 0,
-            "combat_timing.json": 1,
-            "combat_difficulty_blacklist.json": 2,
-            "combat_first_dispatch_status.json": 3,
-            "hard_dig_plan.json": 4,
+            "build_order_runtime.json": 1,
+            "combat_timing.json": 2,
+            "combat_difficulty_blacklist.json": 3,
+            "combat_first_dispatch_status.json": 4,
+            "hard_dig_plan.json": 5,
         }
-        return mapping.get(key, 5)
+        return mapping.get(key, self._advanced_page_index)
+
+    def _build_build_order_buttons(self):
+        # Xoa danh sach cu (neu co) de dam bao idempotent khi khoi tao lai UI.
+        while self.build_order_list_layout.count() > 0:
+            item = self.build_order_list_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+        self._build_order_buttons = []
+        for idx, task in enumerate(BUILD_SEQUENCE):
+            type_name = str(task.get("type_name", task.get("name", "Unknown")))
+            target_lv = int(task.get("target_lv", 0))
+            btn = QPushButton(f"Buoc {idx + 1}: {type_name} +Lv{target_lv}")
+            btn.setCheckable(True)
+            btn.clicked.connect(lambda _checked=False, i=idx: self._on_build_order_step_clicked(i))
+            self.build_order_list_layout.addWidget(btn)
+            self._build_order_buttons.append(btn)
+
+        self.build_order_list_layout.addStretch(1)
+        self._update_build_order_preview()
+
+    def _on_build_order_step_clicked(self, index):
+        self.config_layout_build_order["start_index"].setValue(int(index))
+
+    def _on_build_order_start_index_changed(self, _value):
+        self._update_build_order_preview()
+
+    def _update_build_order_preview(self):
+        spin = self.config_layout_build_order.get("start_index")
+        if spin is None:
+            return
+
+        idx = int(spin.value())
+        total = len(BUILD_SEQUENCE)
+
+        for i, btn in enumerate(self._build_order_buttons):
+            btn.setChecked(i == idx)
+
+        if total == 0:
+            self.lbl_build_order_preview.setText("Preview: BUILD_SEQUENCE rong")
+            return
+
+        if idx >= total:
+            self.lbl_build_order_preview.setText(f"Preview: start_index={idx} (da het danh sach)")
+            return
+
+        task = BUILD_SEQUENCE[idx]
+        type_name = str(task.get("type_name", task.get("name", "Unknown")))
+        target_lv = int(task.get("target_lv", 0))
+        self.lbl_build_order_preview.setText(
+            f"Preview: start_index={idx} -> Buoc {idx + 1}: {type_name} +Lv{target_lv}"
+        )
 
     def _toggle_advanced_editor(self):
         current = self.config_stack.currentIndex()
         key = self._selected_config_key()
         friendly_idx = self._friendly_page_index(key)
-        if current == 5:
+        if current == self._advanced_page_index:
             self.config_stack.setCurrentIndex(friendly_idx)
             self.lbl_config_mode.setText("Mode: friendly")
         else:
-            self.config_stack.setCurrentIndex(5)
+            self.config_stack.setCurrentIndex(self._advanced_page_index)
             self.lbl_config_mode.setText("Mode: advanced json")
 
     def _populate_friendly_editor(self, key, data):
@@ -786,6 +938,9 @@ class MainWindow(QMainWindow):
                 self.config_layout_runtime["debug_auto_cleanup_enabled"].setChecked(bool(data.get("debug_auto_cleanup_enabled", True)))
                 self.config_layout_runtime["debug_auto_cleanup_interval_seconds"].setValue(int(data.get("debug_auto_cleanup_interval_seconds", 900)))
                 self.config_layout_runtime["debug_auto_cleanup_keep_hours"].setValue(int(data.get("debug_auto_cleanup_keep_hours", 12)))
+            elif key == "build_order_runtime.json":
+                self.config_layout_build_order["start_index"].setValue(int(data.get("start_index", 0)))
+                self._update_build_order_preview()
             elif key == "combat_timing.json":
                 self.config_layout_combat_timing["default_battle_duration_seconds"].setValue(int(data.get("default_battle_duration_seconds", 150)))
                 self.config_layout_combat_timing["max_scout_targets_per_cycle"].setValue(int(data.get("max_scout_targets_per_cycle", 10)))
@@ -827,6 +982,10 @@ class MainWindow(QMainWindow):
             obj["debug_auto_cleanup_enabled"] = self.config_layout_runtime["debug_auto_cleanup_enabled"].isChecked()
             obj["debug_auto_cleanup_interval_seconds"] = int(self.config_layout_runtime["debug_auto_cleanup_interval_seconds"].value())
             obj["debug_auto_cleanup_keep_hours"] = int(self.config_layout_runtime["debug_auto_cleanup_keep_hours"].value())
+            return obj
+
+        if key == "build_order_runtime.json":
+            obj["start_index"] = int(self.config_layout_build_order["start_index"].value())
             return obj
 
         if key == "combat_timing.json":
@@ -990,7 +1149,7 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
-        if self.config_stack.currentIndex() == 5:
+        if self.config_stack.currentIndex() == self._advanced_page_index:
             content = self.editor_config.toPlainText()
             if path.lower().endswith(".json"):
                 try:
@@ -1408,6 +1567,16 @@ class MainWindow(QMainWindow):
 
 
 def main():
+    # Chuẩn hóa cwd để các module dùng os.getcwd() tìm đúng config/assets/third_party.
+    if getattr(sys, "frozen", False):
+        app_root = os.path.dirname(sys.executable)
+    else:
+        app_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    try:
+        os.chdir(app_root)
+    except Exception:
+        pass
+
     mp.freeze_support()
     app = QApplication(sys.argv)
     w = MainWindow()

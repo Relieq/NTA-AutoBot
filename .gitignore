@@ -15,3 +15,16 @@ terminal_log.txt
 
 test_connection.py
 test_screen.png
+
+# Build artifacts
+build/
+dist/
+installer_output/
+*.msi
+*.exe
+
+# Keep bundled platform-tools executables trackable
+!third_party/
+!third_party/platform-tools/
+!third_party/platform-tools/*.exe
+
