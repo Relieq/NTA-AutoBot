@@ -1,5 +1,11 @@
 # NTA-AutoBot
 
+<center>
+
+![mô tả ảnh](images/NTA_logo.jpg)
+
+</center>
+
 Bot tự động cho game Android theo hướng nhận diện ảnh (OpenCV + OCR), chạy qua BlueStacks + ADB, không dùng API game.
 
 ## 1) Tổng quan nhanh
@@ -27,6 +33,13 @@ Bot tự động cho game Android theo hướng nhận diện ảnh (OpenCV + OC
 - Python 3.12+.
 - Đủ CPU/RAM cho OpenCV + OCR (PaddleOCR/EasyOCR/Torch).
 - Nếu đóng gói: có `third_party/platform-tools/adb.exe` để bundle ADB.
+
+<center>
+
+![Android_Debug_Bridge.jpg](images/Android_Debug_Bridge.jpg)
+*Bật Android Debug Bridge*
+
+</center>
 
 ## 4) Cài đặt từ source
 ```powershell
@@ -56,6 +69,13 @@ python main.py
 ## 6) Hướng dẫn sử dụng GUI
 
 ### 6.1 Cửa sổ chính
+
+<center>
+
+![GUI_main.png](images/GUI_main.png)
+
+</center>
+
 - Chọn `Dùng map cũ` hoặc `Tạo map mới` + nhập `X/Y`.
 - `Start`: chạy bot process.
 - `Pause` / `Resume`: tạm dừng / tiếp tục theo cơ chế cooperative.
@@ -64,6 +84,13 @@ python main.py
 - Nút `?` góc trên phải: xem hướng dẫn nhanh của cửa sổ chính.
 
 ### 6.2 Hard-Dig Planner (cửa sổ riêng)
+
+<center>
+
+![GUI_hard_dig.png](images/GUI_hard_dig.png)
+
+</center>
+
 - Mở bằng `Open Hard-Dig Planner`.
 - Chế độ thao tác:
   - `Tô màu`: chọn ô mục tiêu.
@@ -79,6 +106,13 @@ python main.py
 - Nút `?` góc trên phải: xem hướng dẫn riêng cho Hard-Dig Planner.
 
 ### 6.3 Config Editor (cửa sổ riêng)
+
+<center>
+
+![GUI_config_editor.png](images/GUI_config_editor.png)
+
+</center>
+
 - Mở bằng `Open Config Editor`.
 - Chọn file config trong dropdown, bấm `Load`.
 - Có 2 chế độ:
@@ -108,6 +142,12 @@ python main.py
   1) Detect captcha bằng `assets/title_captcha.png`.
   2) Nếu còn `btn_ok_captcha`, bot chọn icon #1 rồi bấm OK.
   3) Kiểm tra lại, lặp đến khi captcha biến mất hoặc hết lượt thử.
+
+<center>
+
+![captcha_test_assets_captcha.png](images/captcha_test_assets_captcha.png)
+
+</center>
 
 ## 9) Debug và hiệu chỉnh
 
