@@ -60,6 +60,7 @@ def run_bot_worker(
     map_prefer_existing=None,
     map_new_city_xy=None,
     command_queue=None,
+    adb_port=5555,
 ):
     # Đảm bảo cwd luôn là thư mục app root để các đường dẫn tương đối (config/assets/third_party)
     # hoạt động đúng cả khi chạy source và khi chạy bản đóng gói.
@@ -92,6 +93,7 @@ def run_bot_worker(
             map_prefer_existing=map_prefer_existing,
             map_new_city_xy=map_new_city_xy,
             command_queue=command_queue,
+            adb_port=adb_port,
         )
         _safe_put(event_queue, {"type": "engine", "status": "STOPPED"})
     except Exception:
@@ -105,6 +107,11 @@ def run_bot_worker(
         )
         _safe_put(event_queue, {"type": "engine", "status": "CRASHED"})
     finally:
+        try:
+            from core.device import DeviceManager
+            DeviceManager.stop_adb_server_global()
+        except Exception:
+            pass
         try:
             sys.stdout.flush()
             sys.stderr.flush()

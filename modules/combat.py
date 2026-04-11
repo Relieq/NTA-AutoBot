@@ -1,5 +1,6 @@
 import time
 import os
+import sys
 import json
 import re
 from datetime import datetime
@@ -21,10 +22,11 @@ class CombatManager:
         env_debug = os.getenv("COMBAT_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}
         self.debug_enabled = env_debug if debug_enabled is None else bool(debug_enabled)
         self.debug_dir = os.path.abspath(debug_dir)
+        self._easyocr_unavailable_logged = False
 
         # Khởi tạo EasyOCR - hỗ trợ tiếng Việt
         # gpu=False để dùng CPU, đổi thành True nếu có GPU NVIDIA
-        self.ocr = easyocr.Reader(['vi'], gpu=False, verbose=False)
+        self.ocr = self._init_easyocr_reader(['vi'], "combat")
         # OCR thời gian hành quân dùng PaddleOCR (ổn định hơn cho chuỗi thời gian ngắn).
         self.time_ocr = None
         if PaddleOCR is not None:
@@ -108,6 +110,60 @@ class CombatManager:
                 return p
         return candidates[0]
 
+    def _resolve_easyocr_model_dir(self):
+        candidates = [
+            os.path.abspath(os.path.join(os.getcwd(), "third_party", "easyocr", "model")),
+            os.path.abspath(os.path.join(os.getcwd(), "_internal", "third_party", "easyocr", "model")),
+        ]
+
+        if getattr(sys, "frozen", False):
+            exe_root = os.path.dirname(sys.executable)
+            candidates.append(os.path.abspath(os.path.join(exe_root, "third_party", "easyocr", "model")))
+            candidates.append(os.path.abspath(os.path.join(exe_root, "_internal", "third_party", "easyocr", "model")))
+            meipass = getattr(sys, "_MEIPASS", "")
+            if meipass:
+                candidates.append(os.path.abspath(os.path.join(meipass, "third_party", "easyocr", "model")))
+
+        for path in candidates:
+            if not os.path.isdir(path):
+                continue
+            has_model = any(name.lower().endswith(".pth") for name in os.listdir(path))
+            if has_model:
+                return path
+        return None
+
+    def _init_easyocr_reader(self, languages, label):
+        model_dir = self._resolve_easyocr_model_dir()
+
+        if model_dir:
+            try:
+                reader = easyocr.Reader(
+                    languages,
+                    gpu=False,
+                    verbose=False,
+                    model_storage_directory=model_dir,
+                    download_enabled=False,
+                )
+                print(f"   [COMBAT] EasyOCR ({label}) init thành công với model bundled: {model_dir}")
+                return reader
+            except Exception as exc:
+                print(f"   [COMBAT-WARN] EasyOCR ({label}) init từ model bundled lỗi: {exc}")
+
+        if getattr(sys, "frozen", False):
+            print(
+                f"   [COMBAT-WARN] EasyOCR ({label}) không có model bundled trong bản .exe. "
+                f"Bỏ qua EasyOCR để tránh tự tải model runtime."
+            )
+            return None
+
+        try:
+            reader = easyocr.Reader(languages, gpu=False, verbose=False)
+            print(f"   [COMBAT] EasyOCR ({label}) init thành công (source mode).")
+            return reader
+        except Exception as exc:
+            print(f"   [COMBAT-WARN] EasyOCR ({label}) init lỗi: {exc}")
+            return None
+
     def _resolve_config_path(self, relative_path):
         candidates = [
             os.path.abspath(os.path.join(os.getcwd(), relative_path)),
@@ -131,6 +187,12 @@ class CombatManager:
                     return " ".join(rec_texts) if rec_texts else ""
             except Exception as exc:
                 print(f"   [OCR-ERR] PaddleOCR time lỗi, fallback EasyOCR: {exc}")
+
+        if self.ocr is None:
+            if not self._easyocr_unavailable_logged:
+                print("   [OCR-ERR] EasyOCR không khả dụng cho fallback OCR thời gian.")
+                self._easyocr_unavailable_logged = True
+            return ""
 
         try:
             rgb = cv2.cvtColor(processed_img, cv2.COLOR_BGR2RGB)
@@ -782,10 +844,13 @@ class CombatManager:
 
         # OCR với EasyOCR
         try:
-            # EasyOCR trả về list các tuple: (bbox, text, confidence)
-            results = self.ocr.readtext(crop_rgb)
-            # Ghép tất cả text lại
-            full_text = " ".join([item[1] for item in results]) if results else ""
+            if self.ocr is None:
+                full_text = ""
+            else:
+                # EasyOCR trả về list các tuple: (bbox, text, confidence)
+                results = self.ocr.readtext(crop_rgb)
+                # Ghép tất cả text lại
+                full_text = " ".join([item[1] for item in results]) if results else ""
         except Exception as e:
             print(f"   [OCR-ERR] Lỗi OCR: {e}")
             full_text = ""

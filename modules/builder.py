@@ -1,5 +1,6 @@
 import time
 import os
+import sys
 import cv2
 import re
 import unicodedata
@@ -22,6 +23,7 @@ class BuilderManager:
         env_debug = os.getenv("BUILDER_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}
         self.debug_enabled = env_debug if debug_enabled is None else bool(debug_enabled)
         self.debug_dir = os.path.abspath(debug_dir)
+        self._easyocr_unavailable_logged = False
         self.ocr = None
         if PaddleOCR is not None:
             try:
@@ -32,7 +34,7 @@ class BuilderManager:
         else:
             print("   [BUILDER-WARN] Không import được PaddleOCR, fallback EasyOCR.")
         # OCR tên công trình tiếng Việt dùng EasyOCR để ổn định hơn với dấu.
-        self.name_ocr = easyocr.Reader(['vi'], gpu=False, verbose=False)
+        self.name_ocr = self._init_easyocr_reader(['vi'], "builder-name")
 
     def _resolve_assets_dir(self):
         candidates = [
@@ -43,6 +45,60 @@ class BuilderManager:
             if os.path.isdir(p):
                 return p
         return candidates[0]
+
+    def _resolve_easyocr_model_dir(self):
+        candidates = [
+            os.path.abspath(os.path.join(os.getcwd(), "third_party", "easyocr", "model")),
+            os.path.abspath(os.path.join(os.getcwd(), "_internal", "third_party", "easyocr", "model")),
+        ]
+
+        if getattr(sys, "frozen", False):
+            exe_root = os.path.dirname(sys.executable)
+            candidates.append(os.path.abspath(os.path.join(exe_root, "third_party", "easyocr", "model")))
+            candidates.append(os.path.abspath(os.path.join(exe_root, "_internal", "third_party", "easyocr", "model")))
+            meipass = getattr(sys, "_MEIPASS", "")
+            if meipass:
+                candidates.append(os.path.abspath(os.path.join(meipass, "third_party", "easyocr", "model")))
+
+        for path in candidates:
+            if not os.path.isdir(path):
+                continue
+            has_model = any(name.lower().endswith(".pth") for name in os.listdir(path))
+            if has_model:
+                return path
+        return None
+
+    def _init_easyocr_reader(self, languages, label):
+        model_dir = self._resolve_easyocr_model_dir()
+
+        if model_dir:
+            try:
+                reader = easyocr.Reader(
+                    languages,
+                    gpu=False,
+                    verbose=False,
+                    model_storage_directory=model_dir,
+                    download_enabled=False,
+                )
+                print(f"   [BUILDER] EasyOCR ({label}) init thành công với model bundled: {model_dir}")
+                return reader
+            except Exception as exc:
+                print(f"   [BUILDER-WARN] EasyOCR ({label}) init từ model bundled lỗi: {exc}")
+
+        if getattr(sys, "frozen", False):
+            print(
+                f"   [BUILDER-WARN] EasyOCR ({label}) không có model bundled trong bản .exe. "
+                f"Bỏ qua EasyOCR để tránh tự tải model runtime."
+            )
+            return None
+
+        try:
+            reader = easyocr.Reader(languages, gpu=False, verbose=False)
+            print(f"   [BUILDER] EasyOCR ({label}) init thành công (source mode).")
+            return reader
+        except Exception as exc:
+            print(f"   [BUILDER-WARN] EasyOCR ({label}) init lỗi: {exc}")
+            return None
 
     def _ocr_predict_texts(self, image_bgr):
         if image_bgr is None:
@@ -56,6 +112,12 @@ class BuilderManager:
                     return results[0].get('rec_texts', []) or []
             except Exception as exc:
                 print(f"   [BUILDER-WARN] PaddleOCR predict lỗi, fallback EasyOCR: {exc}")
+
+        if self.name_ocr is None:
+            if not self._easyocr_unavailable_logged:
+                print("   [BUILDER-WARN] EasyOCR không khả dụng, bỏ qua fallback OCR.")
+                self._easyocr_unavailable_logged = True
+            return []
 
         try:
             rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
@@ -122,12 +184,13 @@ class BuilderManager:
         enhanced = clahe.apply(gray)
         processed = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
 
-        try:
-            rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
-            results = self.name_ocr.readtext(rgb)
-        except Exception as exc:
-            print(f"   [BUILD-OCR-ERR] EasyOCR lỗi: {exc}")
-            results = []
+        results = []
+        if self.name_ocr is not None:
+            try:
+                rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
+                results = self.name_ocr.readtext(rgb)
+            except Exception as exc:
+                print(f"   [BUILD-OCR-ERR] EasyOCR lỗi: {exc}")
 
         rec_texts = [item[1] for item in results] if results else []
         raw_text = " ".join(rec_texts).strip()

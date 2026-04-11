@@ -21,6 +21,11 @@ class DeviceManager:
 
     def _resolve_adb_command(self):
         """Ưu tiên adb bundled (source / dist root / PyInstaller _internal), fallback về PATH."""
+        return self.resolve_adb_command_for_current_process()
+
+    @staticmethod
+    def resolve_adb_command_for_current_process():
+        """Resolve adb path cho process hiện tại (dùng được cả khi chưa tạo DeviceManager instance)."""
         candidates = []
 
         cwd_root = os.getcwd()
@@ -49,6 +54,19 @@ class DeviceManager:
             subprocess.run([self.adb_cmd, "start-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except Exception as e:
             print(f"Loi start server: {e}")
+
+    @staticmethod
+    def stop_adb_server_global():
+        """Dừng adb server theo cùng cơ chế resolve path, dùng cho cleanup khi thoát/terminate."""
+        adb_cmd = DeviceManager.resolve_adb_command_for_current_process()
+        try:
+            subprocess.run([adb_cmd, "kill-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            print(f"[ADB] Đã dừng adb server bằng: {adb_cmd}")
+        except Exception as e:
+            print(f"[ADB-WARN] Không thể dừng adb server: {e}")
+
+    def stop_adb_server(self):
+        self.stop_adb_server_global()
 
     def connect(self):
         try:

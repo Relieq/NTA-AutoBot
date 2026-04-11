@@ -22,6 +22,7 @@ def run_bot_loop(
     map_prefer_existing=None,
     map_new_city_xy=None,
     command_queue=None,
+    adb_port=5555,
 ):
     def _is_stopped():
         return stop_event is not None and stop_event.is_set()
@@ -65,7 +66,15 @@ def run_bot_loop(
         new_city_coords=map_new_city_xy,
     )
 
-    device = DeviceManager()
+    try:
+        resolved_adb_port = int(adb_port)
+    except Exception:
+        resolved_adb_port = 5555
+    if not (1 <= resolved_adb_port <= 65535):
+        resolved_adb_port = 5555
+
+    print(f"[ADB] Run loop su dung cổng: {resolved_adb_port}")
+    device = DeviceManager(port=resolved_adb_port)
     vision = VisionManager()
     terminal_cleaner = TerminalCleaner()
     debug_cleaner = DebugImageCleaner()

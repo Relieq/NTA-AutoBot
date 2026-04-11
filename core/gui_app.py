@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 
 from core.gui_bridge import run_bot_worker
+from core.device import DeviceManager
 from config.build_order import BUILD_SEQUENCE
 
 try:
@@ -398,21 +399,132 @@ class MainWindow(QMainWindow):
         self._config_data_cache = {}
         self._config_tiers = ["de", "nhap_mon", "thuong", "tang_bac", "kho", "dia_nguc"]
         self._build_order_buttons = []
+        self._hard_main_city = None
+        self._config_runtime_dir = self._resolve_runtime_config_dir()
+        self._config_bundle_dir = self._resolve_bundled_config_dir()
         self.config_file_options = {
-            "runtime.json": os.path.abspath(os.path.join(os.getcwd(), "config", "runtime.json")),
-            "build_order_runtime.json": os.path.abspath(os.path.join(os.getcwd(), "config", "build_order_runtime.json")),
-            "template_profiles.json": os.path.abspath(os.path.join(os.getcwd(), "config", "template_profiles.json")),
-            "combat_timing.json": os.path.abspath(os.path.join(os.getcwd(), "config", "combat_timing.json")),
-            "combat_difficulty_blacklist.json": os.path.abspath(os.path.join(os.getcwd(), "config", "combat_difficulty_blacklist.json")),
-            "combat_first_dispatch_status.json": os.path.abspath(os.path.join(os.getcwd(), "config", "combat_first_dispatch_status.json")),
-            "hard_dig_plan.json": os.path.abspath(os.path.join(os.getcwd(), "config", "hard_dig_plan.json")),
+            "runtime.json": os.path.join(self._config_runtime_dir, "runtime.json"),
+            "build_order_runtime.json": os.path.join(self._config_runtime_dir, "build_order_runtime.json"),
+            "template_profiles.json": os.path.join(self._config_runtime_dir, "template_profiles.json"),
+            "combat_timing.json": os.path.join(self._config_runtime_dir, "combat_timing.json"),
+            "combat_difficulty_blacklist.json": os.path.join(self._config_runtime_dir, "combat_difficulty_blacklist.json"),
+            "combat_first_dispatch_status.json": os.path.join(self._config_runtime_dir, "combat_first_dispatch_status.json"),
+            "hard_dig_plan.json": os.path.join(self._config_runtime_dir, "hard_dig_plan.json"),
         }
+        self._ensure_runtime_config_files()
 
         self._build_ui()
 
         self.poll_timer = QTimer(self)
         self.poll_timer.timeout.connect(self._poll_queues)
         self.poll_timer.start(200)
+
+    def _resolve_runtime_config_dir(self):
+        return os.path.abspath(os.path.join(os.getcwd(), "config"))
+
+    def _resolve_bundled_config_dir(self):
+        candidates = [
+            os.path.abspath(os.path.join(os.getcwd(), "_internal", "config")),
+            os.path.abspath(os.path.join(os.getcwd(), "config")),
+        ]
+        if getattr(sys, "frozen", False):
+            exe_root = os.path.dirname(sys.executable)
+            candidates.insert(0, os.path.abspath(os.path.join(exe_root, "_internal", "config")))
+            candidates.insert(1, os.path.abspath(os.path.join(exe_root, "config")))
+            meipass = getattr(sys, "_MEIPASS", "")
+            if meipass:
+                candidates.insert(0, os.path.abspath(os.path.join(meipass, "config")))
+
+        for path in candidates:
+            if os.path.isdir(path):
+                return path
+        return ""
+
+    def _default_config_object(self, key):
+        if key == "runtime.json":
+            return {
+                "terminal_auto_clear_enabled": True,
+                "terminal_auto_clear_interval_seconds": 900,
+                "debug_auto_cleanup_enabled": True,
+                "debug_auto_cleanup_interval_seconds": 900,
+                "debug_auto_cleanup_keep_hours": 12,
+            }
+        if key == "build_order_runtime.json":
+            return {"start_index": 0}
+        if key == "template_profiles.json":
+            return {}
+        if key == "combat_timing.json":
+            return {
+                "default_battle_duration_seconds": 150,
+                "max_scout_targets_per_cycle": 10,
+                "battle_duration_seconds": {
+                    "de": 20,
+                    "nhap_mon": 80,
+                    "thuong": 150,
+                    "tang_bac": 240,
+                    "kho": 420,
+                    "dia_nguc": 480,
+                },
+            }
+        if key == "combat_difficulty_blacklist.json":
+            return {
+                "enabled": True,
+                "tiers": {
+                    "de": {"default": False, "levels": {}},
+                    "nhap_mon": {"default": False, "levels": {}},
+                    "thuong": {"default": False, "levels": {}},
+                    "tang_bac": {"default": False, "levels": {"2": True, "3": True}},
+                    "kho": {"default": False, "levels": {"1": True, "2": True, "3": True}},
+                    "dia_nguc": {"default": True, "levels": {}},
+                },
+            }
+        if key == "combat_first_dispatch_status.json":
+            return {
+                "enabled": True,
+                "tiers": {
+                    "de": False,
+                    "nhap_mon": False,
+                    "thuong": False,
+                    "tang_bac": False,
+                    "kho": False,
+                    "dia_nguc": False,
+                },
+            }
+        if key == "hard_dig_plan.json":
+            return {
+                "enabled": False,
+                "auto_start_on_boot": False,
+                "activate_hotkey": "h",
+                "start_tile": [300, 300],
+                "targets": [],
+            }
+        return {}
+
+    def _ensure_runtime_config_files(self):
+        os.makedirs(self._config_runtime_dir, exist_ok=True)
+
+        for key, target_path in self.config_file_options.items():
+            if os.path.exists(target_path):
+                continue
+
+            copied = False
+            if self._config_bundle_dir:
+                src_path = os.path.join(self._config_bundle_dir, key)
+                if os.path.exists(src_path):
+                    try:
+                        content = self._read_text_file(src_path)
+                        with open(target_path, "w", encoding="utf-8") as f:
+                            f.write(content)
+                        copied = True
+                        self._append_log(f"[GUI] Da seed config tu bundle: {key}") if hasattr(self, "log_view") else None
+                    except Exception:
+                        copied = False
+
+            if not copied:
+                obj = self._default_config_object(key)
+                with open(target_path, "w", encoding="utf-8") as f:
+                    json.dump(obj, f, ensure_ascii=False, indent=2)
+                    f.write("\n")
 
     def _build_ui(self):
         root = QWidget(self)
@@ -467,14 +579,19 @@ class MainWindow(QMainWindow):
 
         self.input_map_x = QLineEdit()
         self.input_map_y = QLineEdit()
+        self.input_adb_port = QLineEdit()
         self.input_map_x.setPlaceholderText("X")
         self.input_map_y.setPlaceholderText("Y")
+        self.input_adb_port.setPlaceholderText("ADB Port")
         self.input_map_x.setMaximumWidth(80)
         self.input_map_y.setMaximumWidth(80)
+        self.input_adb_port.setMaximumWidth(100)
         self.input_map_x.setValidator(QIntValidator(0, 600, self))
         self.input_map_y.setValidator(QIntValidator(0, 600, self))
+        self.input_adb_port.setValidator(QIntValidator(1, 65535, self))
         self.input_map_x.setText("300")
         self.input_map_y.setText("300")
+        self.input_adb_port.setText("5555")
 
         map_layout.addWidget(self.radio_use_existing_map)
         map_layout.addWidget(self.radio_create_new_map)
@@ -482,6 +599,8 @@ class MainWindow(QMainWindow):
         map_layout.addWidget(self.input_map_x)
         map_layout.addWidget(QLabel("Y:"))
         map_layout.addWidget(self.input_map_y)
+        map_layout.addWidget(QLabel("ADB Port:"))
+        map_layout.addWidget(self.input_adb_port)
         layout.addWidget(map_box)
         self._update_map_input_enabled()
 
@@ -504,11 +623,14 @@ class MainWindow(QMainWindow):
         zoom_row = QHBoxLayout()
         self.btn_zoom_out = QPushButton("-")
         self.btn_zoom_in = QPushButton("+")
+        self.btn_center_city = QPushButton("Ve thanh chinh")
         self.lbl_zoom = QLabel("Zoom: 20")
         self.btn_zoom_out.clicked.connect(lambda: self._zoom_canvas(-2))
         self.btn_zoom_in.clicked.connect(lambda: self._zoom_canvas(2))
+        self.btn_center_city.clicked.connect(self._scroll_hard_to_main_city)
         zoom_row.addWidget(self.btn_zoom_out)
         zoom_row.addWidget(self.btn_zoom_in)
+        zoom_row.addWidget(self.btn_center_city)
         zoom_row.addWidget(self.lbl_zoom)
         hard_layout.addLayout(zoom_row)
 
@@ -1122,7 +1244,7 @@ class MainWindow(QMainWindow):
 
     def _format_selected_json(self):
         path = self._selected_config_path() or ""
-        if self.config_stack.currentIndex() != 5:
+        if self.config_stack.currentIndex() != self._advanced_page_index:
             QMessageBox.information(self, "Thong bao", "Dang o che do friendly. Bat Advanced JSON de format.")
             return
         if not path.lower().endswith(".json"):
@@ -1190,6 +1312,7 @@ class MainWindow(QMainWindow):
         self.radio_create_new_map.setEnabled(False)
         self.input_map_x.setEnabled(False)
         self.input_map_y.setEnabled(False)
+        self.input_adb_port.setEnabled(False)
 
     def _set_buttons_for_stopped(self):
         self.btn_start.setEnabled(True)
@@ -1198,6 +1321,7 @@ class MainWindow(QMainWindow):
         self.btn_stop.setEnabled(False)
         self.radio_use_existing_map.setEnabled(True)
         self.radio_create_new_map.setEnabled(True)
+        self.input_adb_port.setEnabled(True)
         self._update_map_input_enabled()
 
     def _update_hard_dig_mode(self):
@@ -1213,6 +1337,32 @@ class MainWindow(QMainWindow):
         self.lbl_zoom.setText(f"Zoom: {self.hard_canvas.cell_size}")
         self.hard_axis_top.update()
         self.hard_axis_left.update()
+
+    def _scroll_hard_to_main_city(self):
+        city = self._hard_main_city
+        if not (isinstance(city, (list, tuple)) and len(city) == 2):
+            QMessageBox.information(self, "Thong bao", "Chua co thong tin thanh chinh trong map_data.")
+            return
+
+        try:
+            city_x = int(city[0])
+            city_y = int(city[1])
+        except Exception:
+            QMessageBox.information(self, "Thong bao", "Toa do thanh chinh khong hop le.")
+            return
+
+        display_row = self.hard_canvas._game_y_to_display_row(city_y)
+        cell = self.hard_canvas.cell_size
+        target_px_x = int((city_x + 0.5) * cell)
+        target_px_y = int((display_row + 0.5) * cell)
+
+        hbar = self.hard_scroll.horizontalScrollBar()
+        vbar = self.hard_scroll.verticalScrollBar()
+        view_w = self.hard_scroll.viewport().width()
+        view_h = self.hard_scroll.viewport().height()
+
+        hbar.setValue(max(hbar.minimum(), min(hbar.maximum(), target_px_x - view_w // 2)))
+        vbar.setValue(max(vbar.minimum(), min(vbar.maximum(), target_px_y - view_h // 2)))
 
     def _on_canvas_selection_changed(self, count, sx, sy):
         if sx >= 0 and sy >= 0:
@@ -1271,6 +1421,13 @@ class MainWindow(QMainWindow):
             return
 
         main_city = payload.get("main_city", [300, 300])
+        if isinstance(main_city, (list, tuple)) and len(main_city) >= 2:
+            try:
+                self._hard_main_city = (int(main_city[0]), int(main_city[1]))
+            except Exception:
+                self._hard_main_city = None
+        else:
+            self._hard_main_city = None
         raw_grid = payload.get("grid", {})
         tile_info_map = {}
 
@@ -1400,6 +1557,7 @@ class MainWindow(QMainWindow):
         allow_edit = self.radio_create_new_map.isChecked() and (self.proc is None)
         self.input_map_x.setEnabled(allow_edit)
         self.input_map_y.setEnabled(allow_edit)
+        self.input_adb_port.setEnabled(self.proc is None)
 
     def _append_log(self, line):
         now = datetime.now().strftime("%H:%M:%S")
@@ -1412,6 +1570,19 @@ class MainWindow(QMainWindow):
 
         map_prefer_existing = self.radio_use_existing_map.isChecked()
         map_new_city_xy = None
+        adb_port = 5555
+
+        adb_port_text = self.input_adb_port.text().strip()
+        if adb_port_text:
+            try:
+                adb_port = int(adb_port_text)
+            except ValueError:
+                QMessageBox.warning(self, "Thong bao", "ADB Port phai la so nguyen.")
+                return
+            if not (1 <= adb_port <= 65535):
+                QMessageBox.warning(self, "Thong bao", "ADB Port phai trong khoang 1..65535.")
+                return
+
         if not map_prefer_existing:
             x_text = self.input_map_x.text().strip()
             y_text = self.input_map_y.text().strip()
@@ -1446,6 +1617,7 @@ class MainWindow(QMainWindow):
                 map_prefer_existing,
                 map_new_city_xy,
                 self.command_queue,
+                adb_port,
             ),
             daemon=True,
         )
@@ -1455,6 +1627,7 @@ class MainWindow(QMainWindow):
         self._append_log(f"[GUI] Lua chon khoi tao map: {init_mode}")
         if map_new_city_xy is not None:
             self._append_log(f"[GUI] Toa do map moi: X={map_new_city_xy[0]}, Y={map_new_city_xy[1]}")
+        self._append_log(f"[GUI] ADB Port: {adb_port}")
         self._append_log("[GUI] Da start bot process.")
         self._set_buttons_for_running()
 
@@ -1473,6 +1646,7 @@ class MainWindow(QMainWindow):
     def stop_bot(self):
         if self.proc is None:
             return
+        forced_terminate = False
         if self.stop_event is not None:
             self.stop_event.set()
 
@@ -1481,6 +1655,15 @@ class MainWindow(QMainWindow):
             self._append_log("[GUI] Bot chua dung mem, terminate process.")
             self.proc.terminate()
             self.proc.join(timeout=3)
+            forced_terminate = True
+
+        # Nếu worker bị terminate cứng thì finally của worker có thể không chạy,
+        # nên parent process cleanup ADB thêm một lần để tránh lock adb.exe.
+        if forced_terminate:
+            try:
+                DeviceManager.stop_adb_server_global()
+            except Exception:
+                pass
 
         self.lbl_engine.setText("STOPPED")
         self._append_log("[GUI] Bot da dung.")

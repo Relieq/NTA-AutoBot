@@ -616,6 +616,18 @@
             "difficulty_level": 4,
             "difficulty_rank": 1004,
             "difficulty_label": "Nhập môn 4"
+        },
+        "157,168": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 2",
+            "last_updated": 1775947259,
+            "distance_to_city": 5,
+            "difficulty_normalized": "nhap mon 2",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "nhap_mon",
+            "difficulty_level": 2,
+            "difficulty_rank": 1002,
+            "difficulty_label": "Nhập môn 2"
         }
     }
 }
