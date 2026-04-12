@@ -131,10 +131,19 @@ python main.py
 - `config/build_order.py`: danh sách gốc `BUILD_SEQUENCE`.
 - `config/build_order_runtime.json`: điểm bắt đầu builder (`start_index`).
 
+Khi bot khởi động, log sẽ in mục `[CONFIG] Runtime config paths` để bạn kiểm tra chính xác file config nào đang được load (rất hữu ích khi chạy bản đóng gói `.exe`).
+
+`runtime.json` cũng hỗ trợ dọn file backup config `.bak`:
+- `config_backup_enabled`: bật/tắt dọn backup tự động.
+- `config_backup_keep_count`: giữ tối đa N bản backup mới nhất cho mỗi file config.
+- `config_backup_keep_days`: chỉ giữ backup cũ trong tối đa X ngày.
+
 ### 7.1 Chọn điểm bắt đầu Builder
 - Trong Config Editor, chọn `build_order_runtime.json`.
 - Dùng Step Picker (danh sách nút “Bước X: ...”) để bấm chọn điểm bắt đầu.
 - Giá trị lưu dưới dạng `start_index` (0-based).
+
+Lưu ý bản đóng gói (`.exe`): bot ưu tiên đọc file runtime người dùng chỉnh ở `config/build_order_runtime.json` (ngoài thư mục bundle nội bộ), nên thay đổi `start_index` sẽ có hiệu lực đúng như khi chạy source.
 
 ## 8) Captcha (trạng thái hiện tại)
 - Không dùng model phân loại captcha.
@@ -229,6 +238,18 @@ Output mặc định: `installer/installer_output/NTA-AutoBot-Setup.exe`
   - kiểm tra log combat đang ở trạng thái nào.
 - Builder chạy sai điểm bắt đầu:
   - kiểm tra `config/build_order_runtime.json` (`start_index`) hoặc chọn lại trong Step Picker GUI.
+- Log không tự clear trên GUI:
+  - tính năng auto-clear phụ thuộc `config/runtime.json`:
+    - `terminal_auto_clear_enabled`
+    - `terminal_auto_clear_interval_seconds`
+  - khi auto-clear kích hoạt, `Live Log` trên GUI cũng sẽ được xóa đồng bộ.
+- File `.bak` tăng dần dung lượng:
+  - chỉnh trong `config/runtime.json` bằng 3 tham số backup ở trên;
+  - bot sẽ tự dọn các file backup quá cũ khi bạn bấm Save config trong Config Editor.
+- Bot crash khi ADB chập chờn/mất kết nối tạm thời:
+  - bot đã thêm cơ chế retry reconnect khi `screencap` lỗi;
+  - Vision cũng bỏ qua an toàn khi frame `None`/rỗng thay vì crash;
+  - nếu vẫn lỗi liên tục, kiểm tra BlueStacks + cổng ADB và thử Start lại bot.
 
 ## 12) Công cụ phụ trợ
 - Migrate map cache một lần:

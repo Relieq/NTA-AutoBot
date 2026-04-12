@@ -1,4 +1,5 @@
 import io
+import logging
 import queue
 import sys
 import traceback
@@ -52,6 +53,25 @@ class QueueTextIO(io.TextIOBase):
         self._buffer = ""
 
 
+def _repair_logging_streams(fallback_stream):
+    """Fix StreamHandler instances that reference invalid streams (common in windowed frozen child process)."""
+    try:
+        loggers = [logging.getLogger()]
+        for logger_obj in logging.Logger.manager.loggerDict.values():
+            if isinstance(logger_obj, logging.Logger):
+                loggers.append(logger_obj)
+
+        for lg in loggers:
+            for handler in getattr(lg, "handlers", []):
+                if not isinstance(handler, logging.StreamHandler):
+                    continue
+                stream = getattr(handler, "stream", None)
+                if stream is None or not hasattr(stream, "write"):
+                    handler.setStream(fallback_stream)
+    except Exception:
+        pass
+
+
 def run_bot_worker(
     event_queue,
     state_queue,
@@ -74,15 +94,23 @@ def run_bot_worker(
     except Exception:
         pass
 
-    from main import run_bot_loop
-
     old_stdout = sys.stdout
     old_stderr = sys.stderr
     sys.stdout = QueueTextIO(event_queue, stream_name="stdout")
     sys.stderr = QueueTextIO(event_queue, stream_name="stderr")
+    _repair_logging_streams(sys.stderr)
+
+    from main import run_bot_loop
 
     def on_state(state):
         _safe_put(state_queue, state)
+
+    def on_runtime_event(event):
+        if not isinstance(event, dict):
+            return
+        payload = dict(event)
+        payload.setdefault("type", "runtime_event")
+        _safe_put(event_queue, payload)
 
     try:
         _safe_put(event_queue, {"type": "engine", "status": "STARTING"})
@@ -90,6 +118,7 @@ def run_bot_worker(
             stop_event=stop_event,
             pause_event=pause_event,
             state_callback=on_state,
+            event_callback=on_runtime_event,
             map_prefer_existing=map_prefer_existing,
             map_new_city_xy=map_new_city_xy,
             command_queue=command_queue,

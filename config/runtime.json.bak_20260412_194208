@@ -14,6 +14,6 @@
     ".webp"
   ],
   "config_backup_enabled": true,
-  "config_backup_keep_count": 3,
+  "config_backup_keep_count": 1,
   "config_backup_keep_days": 10
 }

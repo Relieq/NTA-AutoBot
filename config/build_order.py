@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 
 # Format:
@@ -7,7 +8,28 @@ import os
 # target_lv: Cấp độ mục tiêu
 # type_name: Tên hiển thị (để in log)
 
-RUNTIME_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "build_order_runtime.json")
+def _resolve_runtime_config_path():
+    """Ưu tiên config runtime ngoài bundle để người dùng chỉnh được sau khi đóng gói."""
+    candidates = [
+        os.path.abspath(os.path.join(os.getcwd(), "config", "build_order_runtime.json")),
+    ]
+
+    if getattr(sys, "frozen", False):
+        exe_root = os.path.dirname(sys.executable)
+        candidates.append(os.path.abspath(os.path.join(exe_root, "config", "build_order_runtime.json")))
+
+    # Fallback cuối cho source mode hoặc trường hợp đặc biệt.
+    candidates.append(os.path.join(os.path.dirname(__file__), "build_order_runtime.json"))
+
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+
+    # Nếu chưa tồn tại file nào, dùng candidate đầu để các nơi khác có thể tạo mới.
+    return candidates[0]
+
+
+RUNTIME_CONFIG_PATH = _resolve_runtime_config_path()
 DEFAULT_RUNTIME_CONFIG = {
     "start_index": 0,
 }

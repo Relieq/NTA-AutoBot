@@ -10,6 +10,8 @@ from modules.daily_task import DailyTaskManager
 from modules.scene import SceneManager
 from modules.combat import CombatManager
 from config.build_order import resolve_build_sequence
+import os
+import sys
 import time
 import queue
 from typing import Callable, Optional
@@ -19,6 +21,7 @@ def run_bot_loop(
     stop_event=None,
     pause_event=None,
     state_callback: Optional[Callable[[dict], None]] = None,
+    event_callback: Optional[Callable[[dict], None]] = None,
     map_prefer_existing=None,
     map_new_city_xy=None,
     command_queue=None,
@@ -76,7 +79,7 @@ def run_bot_loop(
     print(f"[ADB] Run loop su dung cổng: {resolved_adb_port}")
     device = DeviceManager(port=resolved_adb_port)
     vision = VisionManager()
-    terminal_cleaner = TerminalCleaner()
+    terminal_cleaner = TerminalCleaner(on_clear=event_callback)
     debug_cleaner = DebugImageCleaner()
     hard_dig = HardDigManager()
 
@@ -92,6 +95,30 @@ def run_bot_loop(
     hard_dig.consume_auto_start_request()
 
     build_sequence, build_start_index, _build_runtime = resolve_build_sequence()
+
+    def _resolve_cfg(rel_path):
+        candidates = [
+            os.path.abspath(os.path.join(os.getcwd(), rel_path)),
+            os.path.abspath(os.path.join(os.getcwd(), "_internal", rel_path)),
+        ]
+        if getattr(sys, "frozen", False):
+            exe_root = os.path.dirname(sys.executable)
+            candidates.insert(0, os.path.abspath(os.path.join(exe_root, rel_path)))
+            candidates.insert(1, os.path.abspath(os.path.join(exe_root, "_internal", rel_path)))
+        for p in candidates:
+            if os.path.exists(p):
+                return p
+        return candidates[0]
+
+    print("[CONFIG] Runtime config paths:")
+    print(f"   - runtime.json (terminal): {terminal_cleaner.config_path}")
+    print(f"   - runtime.json (debug-cleanup): {debug_cleaner.config_path}")
+    print(f"   - build_order_runtime.json: {_resolve_cfg(os.path.join('config', 'build_order_runtime.json'))}")
+    print(f"   - template_profiles.json: {vision.profile_path}")
+    print(f"   - combat_timing.json: {combat._resolve_config_path(os.path.join('config', 'combat_timing.json'))}")
+    print(f"   - combat_difficulty_blacklist.json: {combat._resolve_config_path(os.path.join('config', 'combat_difficulty_blacklist.json'))}")
+    print(f"   - combat_first_dispatch_status.json: {combat._resolve_config_path(combat.first_dispatch_status_path)}")
+    print(f"   - hard_dig_plan.json: {hard_dig.plan_path}")
     print(f"[BUILD-ORDER] Tong task: {len(build_sequence)} | Bat dau tu index: {build_start_index}")
 
     # === BỘ NHỚ TRẠNG THÁI (STATE MEMORY) ===
@@ -153,7 +180,12 @@ def run_bot_loop(
                         print("[GUI-CMD] Cập nhật hard-dig plan thất bại.")
 
         now = time.time()
-        terminal_cleaner.maybe_clear(now)
+        if terminal_cleaner.maybe_clear(now):
+            if callable(event_callback):
+                try:
+                    event_callback({"type": "GUI_CLEAR_LOG", "reason": "terminal_auto_clear"})
+                except Exception:
+                    pass
         debug_cleaner.maybe_cleanup(now)
         if hard_dig.poll_hotkey_activation():
             bot_state["hard_dig_pending_activation"] = True

@@ -4,9 +4,10 @@ from typing import Any, Dict
 
 
 class TerminalCleaner:
-    def __init__(self, config_path="config/runtime.json"):
+    def __init__(self, config_path="config/runtime.json", on_clear=None):
         self.config_path = os.path.abspath(config_path)
         self.config = self._load_config()
+        self.on_clear = on_clear
         self.enabled = bool(self.config.get("terminal_auto_clear_enabled", True))
         self.interval_seconds = int(self.config.get("terminal_auto_clear_interval_seconds", 300))
         if self.interval_seconds < 10:
@@ -41,6 +42,7 @@ class TerminalCleaner:
 
     def force_clear(self):
         self._clear_terminal()
+        self._emit_clear_event("force")
 
     def maybe_clear(self, now_ts):
         if not self.enabled:
@@ -54,8 +56,17 @@ class TerminalCleaner:
             return False
 
         self._clear_terminal()
+        self._emit_clear_event("auto")
         self._next_clear_at = now_ts + self.interval_seconds
         return True
+
+    def _emit_clear_event(self, mode):
+        if not callable(self.on_clear):
+            return
+        try:
+            self.on_clear({"type": "TERMINAL_CLEARED", "mode": mode})
+        except Exception:
+            pass
 
     @staticmethod
     def _clear_terminal():

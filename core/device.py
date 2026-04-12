@@ -119,14 +119,26 @@ class DeviceManager:
     def take_screenshot(self):
         """Chụp màn hình và trả về định dạng ảnh OpenCV (numpy array)"""
         if self.device:
-            result = self.device.screencap()
+            try:
+                result = self.device.screencap()
+                image = Image.open(io.BytesIO(result))
+                opencv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+                return opencv_image
+            except Exception as e:
+                print(f"[ADB-WARN] Screencap lỗi: {e}. Đang thử reconnect 1 lần...")
+                try:
+                    self.connect()
+                except Exception:
+                    pass
 
-            # Convert raw bytes thành ảnh
-            image = Image.open(io.BytesIO(result))
-
-            # Convert sang định dạng OpenCV (BGR) để xử lý sau này
-            opencv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-            return opencv_image
+                if self.device:
+                    try:
+                        result = self.device.screencap()
+                        image = Image.open(io.BytesIO(result))
+                        opencv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+                        return opencv_image
+                    except Exception as e2:
+                        print(f"[ADB-ERR] Screencap thất bại sau reconnect: {e2}")
         return None
 
     def save_screenshot(self, filename="debug.png"):

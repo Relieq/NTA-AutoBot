@@ -3,6 +3,7 @@ import queue
 import sys
 import os
 import json
+import time
 from datetime import datetime
 
 from core.gui_bridge import run_bot_worker
@@ -448,6 +449,9 @@ class MainWindow(QMainWindow):
                 "debug_auto_cleanup_enabled": True,
                 "debug_auto_cleanup_interval_seconds": 900,
                 "debug_auto_cleanup_keep_hours": 12,
+                "config_backup_enabled": True,
+                "config_backup_keep_count": 10,
+                "config_backup_keep_days": 30,
             }
         if key == "build_order_runtime.json":
             return {"start_index": 0}
@@ -756,11 +760,19 @@ class MainWindow(QMainWindow):
         self.config_layout_runtime["debug_auto_cleanup_interval_seconds"].setRange(1, 86400)
         self.config_layout_runtime["debug_auto_cleanup_keep_hours"] = QSpinBox()
         self.config_layout_runtime["debug_auto_cleanup_keep_hours"].setRange(1, 24 * 365)
+        self.config_layout_runtime["config_backup_enabled"] = QCheckBox()
+        self.config_layout_runtime["config_backup_keep_count"] = QSpinBox()
+        self.config_layout_runtime["config_backup_keep_count"].setRange(1, 200)
+        self.config_layout_runtime["config_backup_keep_days"] = QSpinBox()
+        self.config_layout_runtime["config_backup_keep_days"].setRange(1, 3650)
         runtime_form.addRow("terminal_auto_clear_enabled", self.config_layout_runtime["terminal_auto_clear_enabled"])
         runtime_form.addRow("terminal_auto_clear_interval_seconds", self.config_layout_runtime["terminal_auto_clear_interval_seconds"])
         runtime_form.addRow("debug_auto_cleanup_enabled", self.config_layout_runtime["debug_auto_cleanup_enabled"])
         runtime_form.addRow("debug_auto_cleanup_interval_seconds", self.config_layout_runtime["debug_auto_cleanup_interval_seconds"])
         runtime_form.addRow("debug_auto_cleanup_keep_hours", self.config_layout_runtime["debug_auto_cleanup_keep_hours"])
+        runtime_form.addRow("config_backup_enabled", self.config_layout_runtime["config_backup_enabled"])
+        runtime_form.addRow("config_backup_keep_count", self.config_layout_runtime["config_backup_keep_count"])
+        runtime_form.addRow("config_backup_keep_days", self.config_layout_runtime["config_backup_keep_days"])
 
         build_order_page = QWidget()
         build_order_layout = QVBoxLayout(build_order_page)
@@ -1060,6 +1072,9 @@ class MainWindow(QMainWindow):
                 self.config_layout_runtime["debug_auto_cleanup_enabled"].setChecked(bool(data.get("debug_auto_cleanup_enabled", True)))
                 self.config_layout_runtime["debug_auto_cleanup_interval_seconds"].setValue(int(data.get("debug_auto_cleanup_interval_seconds", 900)))
                 self.config_layout_runtime["debug_auto_cleanup_keep_hours"].setValue(int(data.get("debug_auto_cleanup_keep_hours", 12)))
+                self.config_layout_runtime["config_backup_enabled"].setChecked(bool(data.get("config_backup_enabled", True)))
+                self.config_layout_runtime["config_backup_keep_count"].setValue(int(data.get("config_backup_keep_count", 10)))
+                self.config_layout_runtime["config_backup_keep_days"].setValue(int(data.get("config_backup_keep_days", 30)))
             elif key == "build_order_runtime.json":
                 self.config_layout_build_order["start_index"].setValue(int(data.get("start_index", 0)))
                 self._update_build_order_preview()
@@ -1104,6 +1119,9 @@ class MainWindow(QMainWindow):
             obj["debug_auto_cleanup_enabled"] = self.config_layout_runtime["debug_auto_cleanup_enabled"].isChecked()
             obj["debug_auto_cleanup_interval_seconds"] = int(self.config_layout_runtime["debug_auto_cleanup_interval_seconds"].value())
             obj["debug_auto_cleanup_keep_hours"] = int(self.config_layout_runtime["debug_auto_cleanup_keep_hours"].value())
+            obj["config_backup_enabled"] = self.config_layout_runtime["config_backup_enabled"].isChecked()
+            obj["config_backup_keep_count"] = int(self.config_layout_runtime["config_backup_keep_count"].value())
+            obj["config_backup_keep_days"] = int(self.config_layout_runtime["config_backup_keep_days"].value())
             return obj
 
         if key == "build_order_runtime.json":
@@ -1183,6 +1201,118 @@ class MainWindow(QMainWindow):
         with open(tmp_path, "w", encoding="utf-8") as f:
             f.write(content)
         os.replace(tmp_path, path)
+
+        runtime_override = None
+        if os.path.basename(path).lower() == "runtime.json":
+            try:
+                loaded = json.loads(content)
+                if isinstance(loaded, dict):
+                    runtime_override = loaded
+            except Exception:
+                runtime_override = None
+
+        policy = self._load_backup_policy(runtime_override)
+        deleted = self._prune_backup_files(path, policy)
+        if deleted > 0:
+            self._append_log(f"[GUI] Da don dep {deleted} file .bak cua {os.path.basename(path)}")
+
+    def _load_backup_policy(self, runtime_override=None):
+        policy = {
+            "enabled": True,
+            "keep_count": 10,
+            "keep_days": 30,
+        }
+
+        data = None
+        if isinstance(runtime_override, dict):
+            data = runtime_override
+        else:
+            runtime_path = self.config_file_options.get("runtime.json", os.path.join(self._config_runtime_dir, "runtime.json"))
+            if os.path.exists(runtime_path):
+                for enc in ("utf-8-sig", "utf-8"):
+                    try:
+                        with open(runtime_path, "r", encoding=enc) as f:
+                            loaded = json.load(f)
+                        if isinstance(loaded, dict):
+                            data = loaded
+                            break
+                    except Exception:
+                        continue
+
+        if isinstance(data, dict):
+            policy["enabled"] = bool(data.get("config_backup_enabled", True))
+            try:
+                policy["keep_count"] = max(1, int(data.get("config_backup_keep_count", 10)))
+            except Exception:
+                policy["keep_count"] = 10
+            try:
+                policy["keep_days"] = max(1, int(data.get("config_backup_keep_days", 10)))
+            except Exception:
+                policy["keep_days"] = 10
+
+        return policy
+
+    def _prune_backup_files(self, path, policy):
+        if not bool(policy.get("enabled", True)):
+            return 0
+
+        folder = os.path.dirname(path)
+        base = os.path.basename(path)
+        prefix = f"{base}.bak_"
+        if not os.path.isdir(folder):
+            return 0
+
+        backups = []
+        for name in os.listdir(folder):
+            if not name.startswith(prefix):
+                continue
+            full_path = os.path.join(folder, name)
+            if os.path.isfile(full_path):
+                backups.append(full_path)
+
+        if not backups:
+            return 0
+
+        keep_count = max(1, int(policy.get("keep_count", 10)))
+        keep_days = max(1, int(policy.get("keep_days", 30)))
+        cutoff = time.time() - (keep_days * 86400)
+
+        backups.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        keep_set = set(backups[:keep_count])
+
+        deleted = 0
+        for bak in backups:
+            # keep_count là giới hạn cứng số bản backup tối đa.
+            # keep_days là điều kiện bổ sung để dọn bản backup cũ theo thời gian.
+            if bak in keep_set:
+                continue
+            try:
+                mtime = os.path.getmtime(bak)
+            except Exception:
+                mtime = 0
+            try:
+                os.remove(bak)
+                deleted += 1
+            except Exception:
+                pass
+
+        # Dọn thêm theo tuổi file (kể cả khi số lượng backup hiện tại <= keep_count).
+        for bak in list(keep_set):
+            if not os.path.exists(bak):
+                continue
+            try:
+                mtime = os.path.getmtime(bak)
+            except Exception:
+                mtime = 0
+            if mtime >= cutoff:
+                continue
+            try:
+                os.remove(bak)
+                deleted += 1
+            except Exception:
+                pass
+
+        return deleted
 
     def _on_config_text_changed(self):
         if self._config_editor_loading:
@@ -1699,6 +1829,9 @@ class MainWindow(QMainWindow):
                     self._append_log(f"[{stream}] {msg}")
                 elif isinstance(event, dict) and event.get("type") == "engine":
                     self._append_log(f"[ENGINE] {event.get('status', '')}")
+                elif isinstance(event, dict) and event.get("type") == "GUI_CLEAR_LOG":
+                    self.log_view.clear()
+                    self._append_log("[GUI] Live Log da duoc xoa boi terminal auto-clear.")
 
         if self.state_queue is not None:
             latest = None

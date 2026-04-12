@@ -263,6 +263,10 @@ class VisionManager:
             threshold: Ngưỡng nhận diện (0.0 - 1.0). Nếu None, sử dụng self.threshold
             max_retries: Số lần thử tìm kiếm (mặc định 1)
         """
+        if screen_img is None:
+            print("> Vision: Bỏ qua find_template vì screen_img=None")
+            return None
+
         profile = self._resolve_profile(template_path)
         threshold = self._resolve_threshold(threshold, profile, "find_template")
         scales = self._resolve_scales(profile)
@@ -275,6 +279,9 @@ class VisionManager:
             return None
 
         screen_color = self._to_bgr(screen_img)
+        if screen_color is None or getattr(screen_color, "size", 0) == 0:
+            print("> Vision: Bỏ qua find_template vì ảnh màn hình rỗng/không hợp lệ")
+            return None
         screen_gray = self._preprocess_gray(self._to_gray(screen_color))
         screen_edge = self._edge_map(screen_gray)
 
@@ -352,6 +359,10 @@ class VisionManager:
         Returns:
             List các tuple (center_x, center_y) sắp xếp theo y tăng dần, hoặc [] nếu không tìm thấy
         """
+        if screen_img is None:
+            print("> Vision: Bỏ qua find_all_templates vì screen_img=None")
+            return []
+
         profile = self._resolve_profile(template_path)
         threshold = self._resolve_threshold(threshold, profile, "find_all")
         min_distance = self._resolve_min_distance(min_distance, profile)
@@ -365,6 +376,9 @@ class VisionManager:
             return []
 
         screen_color = self._to_bgr(screen_img)
+        if screen_color is None or getattr(screen_color, "size", 0) == 0:
+            print("> Vision: Bỏ qua find_all_templates vì ảnh màn hình rỗng/không hợp lệ")
+            return []
         screen_gray = self._preprocess_gray(self._to_gray(screen_color))
         screen_edge = self._edge_map(screen_gray)
         methods = [
