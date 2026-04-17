@@ -400,6 +400,8 @@ class MainWindow(QMainWindow):
         self._config_data_cache = {}
         self._config_tiers = ["de", "nhap_mon", "thuong", "tang_bac", "kho", "dia_nguc"]
         self._build_order_buttons = []
+        self._build_order_initial_setup_done = False
+        self._build_order_setup_prompt_shown = False
         self._hard_main_city = None
         self._config_runtime_dir = self._resolve_runtime_config_dir()
         self._config_bundle_dir = self._resolve_bundled_config_dir()
@@ -454,7 +456,7 @@ class MainWindow(QMainWindow):
                 "config_backup_keep_days": 30,
             }
         if key == "build_order_runtime.json":
-            return {"start_index": 0}
+            return {"start_index": 0, "initial_setup_done": False}
         if key == "template_profiles.json":
             return {}
         if key == "combat_timing.json":
@@ -896,6 +898,7 @@ class MainWindow(QMainWindow):
         self._load_hard_dig_plan_into_canvas()
         self._reload_hard_dig_overlay(show_feedback=False)
         self._load_selected_config()
+        self._sync_build_order_start_gate(show_popup=True)
 
     def _show_help_main(self):
         text = (
@@ -987,6 +990,49 @@ class MainWindow(QMainWindow):
 
     def _selected_config_key(self):
         return self.combo_config_file.currentText().strip()
+
+    def _read_build_order_runtime_config(self):
+        path = self.config_file_options.get("build_order_runtime.json", "")
+        if not path or not os.path.exists(path):
+            return {}
+        try:
+            content = self._read_text_file(path)
+            data = json.loads(content)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _sync_build_order_start_gate(self, show_popup=False):
+        data = self._read_build_order_runtime_config()
+        self._build_order_initial_setup_done = bool(data.get("initial_setup_done", False))
+
+        if self.proc is None:
+            self.btn_start.setEnabled(self._build_order_initial_setup_done)
+
+        if self._build_order_initial_setup_done:
+            return
+
+        if show_popup and (not self._build_order_setup_prompt_shown):
+            self._build_order_setup_prompt_shown = True
+            QMessageBox.information(
+                self,
+                "Thiet lap ban dau bat buoc",
+                "Ban can cau hinh build_order_runtime truoc khi Start bot.\n"
+                "Hay chon buoc khoi dau Builder trong Config Editor va bam Save.",
+            )
+            self._open_build_order_config_for_setup()
+
+    def _open_build_order_config_for_setup(self):
+        key = "build_order_runtime.json"
+        target_index = self.combo_config_file.findText(key)
+        if target_index >= 0:
+            self.combo_config_file.blockSignals(True)
+            self.combo_config_file.setCurrentIndex(target_index)
+            self.combo_config_file.blockSignals(False)
+        self._load_selected_config()
+        self.config_stack.setCurrentIndex(self._friendly_page_index(key))
+        self.lbl_config_mode.setText("Mode: friendly")
+        self._open_config_editor_window()
 
     def _friendly_page_index(self, key):
         mapping = {
@@ -1126,6 +1172,8 @@ class MainWindow(QMainWindow):
 
         if key == "build_order_runtime.json":
             obj["start_index"] = int(self.config_layout_build_order["start_index"].value())
+            # Save qua Config Editor duoc xem la da hoan tat setup ban dau.
+            obj["initial_setup_done"] = True
             return obj
 
         if key == "combat_timing.json":
@@ -1406,6 +1454,8 @@ class MainWindow(QMainWindow):
             if path.lower().endswith(".json"):
                 try:
                     obj = json.loads(content)
+                    if key == "build_order_runtime.json" and isinstance(obj, dict):
+                        obj["initial_setup_done"] = True
                     content = json.dumps(obj, ensure_ascii=False, indent=2) + "\n"
                 except Exception as exc:
                     QMessageBox.warning(self, "Thong bao", f"JSON khong hop le, khong the save: {exc}")
@@ -1427,6 +1477,11 @@ class MainWindow(QMainWindow):
             except Exception:
                 self._config_data_cache = {}
 
+            if os.path.basename(path) == "build_order_runtime.json":
+                self._sync_build_order_start_gate(show_popup=False)
+                if self._build_order_initial_setup_done:
+                    self._append_log("[GUI] Build order setup da hoan tat. Ban co the Start bot.")
+
             # Auto refresh overlay nếu user sửa map_data-related config ảnh hưởng trực quan.
             if os.path.basename(path) == "hard_dig_plan.json":
                 self._load_hard_dig_plan_into_canvas()
@@ -1445,7 +1500,7 @@ class MainWindow(QMainWindow):
         self.input_adb_port.setEnabled(False)
 
     def _set_buttons_for_stopped(self):
-        self.btn_start.setEnabled(True)
+        self.btn_start.setEnabled(bool(self._build_order_initial_setup_done))
         self.btn_pause.setEnabled(False)
         self.btn_resume.setEnabled(False)
         self.btn_stop.setEnabled(False)
@@ -1696,6 +1751,15 @@ class MainWindow(QMainWindow):
     def start_bot(self):
         if self.proc is not None and self.proc.is_alive():
             QMessageBox.information(self, "Thong bao", "Bot dang chay.")
+            return
+
+        if not self._build_order_initial_setup_done:
+            self._sync_build_order_start_gate(show_popup=True)
+            QMessageBox.warning(
+                self,
+                "Thong bao",
+                "Chua hoan tat setup build_order_runtime. Vui long cau hinh va Save truoc khi Start.",
+            )
             return
 
         map_prefer_existing = self.radio_use_existing_map.isChecked()

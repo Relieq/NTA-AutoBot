@@ -129,7 +129,6 @@ def run_bot_loop(
 
         # Daily States
         "next_spin_time": .0,
-        "next_gold_time": .0,
 
         # Combat States
         "combat_mode": "NORMAL",  # NORMAL | HARD_DIG
@@ -370,14 +369,6 @@ def run_bot_loop(
         if time.time() >= bot_state["next_spin_time"]:
             daily.do_lucky_wheel()
             bot_state["next_spin_time"] = time.time() + 600
-            if state_callback:
-                state_callback({**bot_state, "engine_paused": False, "ts": time.time()})
-            continue
-
-        # 2. Nhận vàng
-        if time.time() >= bot_state["next_gold_time"]:
-            daily.claim_free_gold()
-            bot_state["next_gold_time"] = time.time() + 3600
             if state_callback:
                 state_callback({**bot_state, "engine_paused": False, "ts": time.time()})
             continue

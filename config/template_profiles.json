@@ -16,12 +16,6 @@
     "btn_quay.png": {
       "threshold": 0.6
     },
-    "icon_cua_tiem.png": {
-      "threshold": 0.75
-    },
-    "btn_3_vang.png": {
-      "threshold": 0.65
-    },
     "btn_map.png": {
       "threshold": 0.6
     },

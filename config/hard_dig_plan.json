@@ -3,33 +3,36 @@
   "activate_hotkey": "h",
   "auto_start_on_boot": false,
   "start_tile": [
-    163,
-    164
+    119,
+    212
   ],
   "targets": [
     [
       163,
       164
+    ],
+    [
+      119,
+      212
     ]
   ],
   "runtime": {
     "activation_requested": false,
     "active": true,
-    "current_index": 1,
+    "current_index": 0,
     "ordered_targets": [
       {
-        "x": 163,
-        "y": 164
-      }
-    ],
-    "completed_targets": [
+        "x": 119,
+        "y": 212
+      },
       {
         "x": 163,
         "y": 164
       }
     ],
+    "completed_targets": [],
     "skipped_targets": [],
     "last_error": "",
-    "updated_at": "2026-04-12T19:34:49"
+    "updated_at": "2026-04-16T19:55:25"
   }
 }

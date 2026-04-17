@@ -1,14 +1,14 @@
 {
     "schema_version": 2,
     "main_city": [
-        161,
-        167
+        117,
+        211
     ],
     "grid": {
-        "161,167": {
+        "117,211": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775321710,
+            "last_updated": 1776344087,
             "distance_to_city": 0,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -17,10 +17,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "162,167": {
+        "118,211": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775321710,
+            "last_updated": 1776344087,
             "distance_to_city": 1,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -29,10 +29,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "161,168": {
+        "117,212": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775321710,
+            "last_updated": 1776344087,
             "distance_to_city": 1,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -41,10 +41,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "162,168": {
+        "118,212": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775321710,
+            "last_updated": 1776344087,
             "distance_to_city": 2,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -53,10 +53,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "164,167": {
+        "119,212": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775327475,
+            "last_updated": 1776344161,
             "distance_to_city": 3,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -65,11 +65,11 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "164,166": {
+        "116,211": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775327604,
-            "distance_to_city": 4,
+            "last_updated": 1776347189,
+            "distance_to_city": 1,
             "difficulty_normalized": "",
             "difficulty_valid": false,
             "difficulty_tier_key": "",
@@ -77,46 +77,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "164,165": {
+        "116,212": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775327778,
-            "distance_to_city": 5,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "163,165": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775327963,
-            "distance_to_city": 4,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "162,165": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775328153,
-            "distance_to_city": 3,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "161,165": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775328277,
+            "last_updated": 1776347206,
             "distance_to_city": 2,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -125,11 +89,11 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "160,165": {
+        "117,210": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775328376,
-            "distance_to_city": 3,
+            "last_updated": 1776347222,
+            "distance_to_city": 1,
             "difficulty_normalized": "",
             "difficulty_valid": false,
             "difficulty_tier_key": "",
@@ -137,34 +101,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "159,165": {
+        "117,213": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775328593,
-            "distance_to_city": 4,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "159,166": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775328757,
-            "distance_to_city": 3,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "159,167": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775328924,
+            "last_updated": 1776347239,
             "distance_to_city": 2,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -173,10 +113,22 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "159,168": {
+        "118,210": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775329025,
+            "last_updated": 1776347255,
+            "distance_to_city": 2,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "118,213": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1776347363,
             "distance_to_city": 3,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -185,10 +137,22 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "159,169": {
+        "119,211": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775329130,
+            "last_updated": 1776347289,
+            "distance_to_city": 2,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "119,213": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1776348957,
             "distance_to_city": 4,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -197,22 +161,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "159,170": {
+        "120,212": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775329291,
-            "distance_to_city": 5,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "160,170": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775329463,
+            "last_updated": 1776347324,
             "distance_to_city": 4,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -221,10 +173,22 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "161,170": {
+        "115,211": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775329639,
+            "last_updated": 1776347764,
+            "distance_to_city": 2,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "115,212": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1776347593,
             "distance_to_city": 3,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -233,11 +197,11 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "162,170": {
+        "116,210": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775330028,
-            "distance_to_city": 6,
+            "last_updated": 1776347609,
+            "distance_to_city": 2,
             "difficulty_normalized": "",
             "difficulty_valid": false,
             "difficulty_tier_key": "",
@@ -245,11 +209,11 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "163,170": {
+        "116,213": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775329842,
-            "distance_to_city": 5,
+            "last_updated": 1776348356,
+            "distance_to_city": 3,
             "difficulty_normalized": "",
             "difficulty_valid": false,
             "difficulty_tier_key": "",
@@ -257,11 +221,11 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "164,170": {
+        "117,209": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775330028,
-            "distance_to_city": 6,
+            "last_updated": 1776348107,
+            "distance_to_city": 2,
             "difficulty_normalized": "",
             "difficulty_valid": false,
             "difficulty_tier_key": "",
@@ -269,22 +233,130 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "158,165": {
+        "117,214": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1776347659,
+            "distance_to_city": 3,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "118,209": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1776348581,
+            "distance_to_city": 3,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "118,214": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1776347692,
+            "distance_to_city": 4,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "119,210": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1776347709,
+            "distance_to_city": 3,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "120,211": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1776348769,
+            "distance_to_city": 3,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "114,211": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1776349129,
+            "distance_to_city": 3,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "114,212": {
             "state": "RESOURCE",
-            "difficulty": "Thường 6",
-            "last_updated": 1775331425,
-            "distance_to_city": 5,
-            "difficulty_normalized": "thuong 6",
+            "difficulty": "Nhập môn 4",
+            "last_updated": 1776347932,
+            "distance_to_city": 4,
+            "difficulty_normalized": "nhap mon 4",
             "difficulty_valid": true,
-            "difficulty_tier_key": "thuong",
-            "difficulty_level": 6,
-            "difficulty_rank": 2006,
-            "difficulty_label": "Thường 6"
+            "difficulty_tier_key": "nhap_mon",
+            "difficulty_level": 4,
+            "difficulty_rank": 1004,
+            "difficulty_label": "Nhập môn 4"
         },
-        "158,166": {
+        "115,210": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1776349444,
+            "distance_to_city": 3,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "115,213": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 4",
+            "last_updated": 1776347966,
+            "distance_to_city": 4,
+            "difficulty_normalized": "nhap mon 4",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "nhap_mon",
+            "difficulty_level": 4,
+            "difficulty_rank": 1004,
+            "difficulty_label": "Nhập môn 4"
+        },
+        "116,209": {
+            "state": "OWNED",
+            "difficulty": "",
+            "last_updated": 1776349749,
+            "distance_to_city": 3,
+            "difficulty_normalized": "",
+            "difficulty_valid": false,
+            "difficulty_tier_key": "",
+            "difficulty_level": 999,
+            "difficulty_rank": 999999,
+            "difficulty_label": ""
+        },
+        "116,214": {
             "state": "RESOURCE",
             "difficulty": "Thường 3",
-            "last_updated": 1775331442,
+            "last_updated": 1776348000,
             "distance_to_city": 4,
             "difficulty_normalized": "thuong 3",
             "difficulty_valid": true,
@@ -293,202 +365,10 @@
             "difficulty_rank": 2003,
             "difficulty_label": "Thường 3"
         },
-        "158,167": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775331624,
-            "distance_to_city": 3,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "158,168": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775657837,
-            "distance_to_city": 4,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "158,169": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 2",
-            "last_updated": 1775331492,
-            "distance_to_city": 5,
-            "difficulty_normalized": "nhap mon 2",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "nhap_mon",
-            "difficulty_level": 2,
-            "difficulty_rank": 1002,
-            "difficulty_label": "Nhập môn 2"
-        },
-        "158,170": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 3",
-            "last_updated": 1775331509,
-            "distance_to_city": 6,
-            "difficulty_normalized": "nhap mon 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "nhap_mon",
-            "difficulty_level": 3,
-            "difficulty_rank": 1003,
-            "difficulty_label": "Nhập môn 3"
-        },
-        "159,164": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 3",
-            "last_updated": 1775331525,
-            "distance_to_city": 5,
-            "difficulty_normalized": "nhap mon 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "nhap_mon",
-            "difficulty_level": 3,
-            "difficulty_rank": 1003,
-            "difficulty_label": "Nhập môn 3"
-        },
-        "159,171": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 3",
-            "last_updated": 1775331542,
-            "distance_to_city": 6,
-            "difficulty_normalized": "nhap mon 3",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "nhap_mon",
-            "difficulty_level": 3,
-            "difficulty_rank": 1003,
-            "difficulty_label": "Nhập môn 3"
-        },
-        "160,164": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775991591,
-            "distance_to_city": 4,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "160,166": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775331575,
-            "distance_to_city": 2,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "157,167": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 2",
-            "last_updated": 1775335656,
-            "distance_to_city": 4,
-            "difficulty_normalized": "nhap mon 2",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "nhap_mon",
-            "difficulty_level": 2,
-            "difficulty_rank": 1002,
-            "difficulty_label": "Nhập môn 2"
-        },
-        "160,167": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775645489,
-            "distance_to_city": 1,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "160,168": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775645506,
-            "distance_to_city": 2,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "160,169": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775645524,
-            "distance_to_city": 3,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "160,171": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 2",
-            "last_updated": 1775645541,
-            "distance_to_city": 5,
-            "difficulty_normalized": "nhap mon 2",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "nhap_mon",
-            "difficulty_level": 2,
-            "difficulty_rank": 1002,
-            "difficulty_label": "Nhập môn 2"
-        },
-        "161,164": {
+        "117,215": {
             "state": "RESOURCE",
             "difficulty": "Nhập môn 4",
-            "last_updated": 1775645557,
-            "distance_to_city": 3,
-            "difficulty_normalized": "nhap mon 4",
-            "difficulty_valid": true,
-            "difficulty_tier_key": "nhap_mon",
-            "difficulty_level": 4,
-            "difficulty_rank": 1004,
-            "difficulty_label": "Nhập môn 4"
-        },
-        "161,166": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775645575,
-            "distance_to_city": 1,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "161,169": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775645592,
-            "distance_to_city": 2,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "161,171": {
-            "state": "RESOURCE",
-            "difficulty": "Nhập môn 4",
-            "last_updated": 1775645608,
+            "last_updated": 1776348017,
             "distance_to_city": 4,
             "difficulty_normalized": "nhap mon 4",
             "difficulty_valid": true,
@@ -497,11 +377,11 @@
             "difficulty_rank": 1004,
             "difficulty_label": "Nhập môn 4"
         },
-        "162,164": {
+        "118,215": {
             "state": "RESOURCE",
             "difficulty": "Nhập môn 4",
-            "last_updated": 1775657627,
-            "distance_to_city": 4,
+            "last_updated": 1776348035,
+            "distance_to_city": 5,
             "difficulty_normalized": "nhap mon 4",
             "difficulty_valid": true,
             "difficulty_tier_key": "nhap_mon",
@@ -509,11 +389,11 @@
             "difficulty_rank": 1004,
             "difficulty_label": "Nhập môn 4"
         },
-        "162,166": {
+        "119,209": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775657644,
-            "distance_to_city": 2,
+            "last_updated": 1776387409,
+            "distance_to_city": 4,
             "difficulty_normalized": "",
             "difficulty_valid": false,
             "difficulty_tier_key": "",
@@ -521,22 +401,10 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "162,169": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775657660,
-            "distance_to_city": 3,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "162,171": {
+        "119,214": {
             "state": "RESOURCE",
             "difficulty": "Nhập môn 1",
-            "last_updated": 1775657677,
+            "last_updated": 1776348069,
             "distance_to_city": 5,
             "difficulty_normalized": "nhap mon 1",
             "difficulty_valid": true,
@@ -545,71 +413,11 @@
             "difficulty_rank": 1001,
             "difficulty_label": "Nhập môn 1"
         },
-        "163,164": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775997168,
-            "distance_to_city": 5,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "163,166": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775657710,
-            "distance_to_city": 3,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "163,167": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775657726,
-            "distance_to_city": 2,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "163,168": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775657743,
-            "distance_to_city": 3,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "163,169": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775657759,
-            "distance_to_city": 4,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
-        },
-        "163,171": {
+        "117,208": {
             "state": "RESOURCE",
             "difficulty": "Nhập môn 4",
-            "last_updated": 1775657775,
-            "distance_to_city": 6,
+            "last_updated": 1776348260,
+            "distance_to_city": 3,
             "difficulty_normalized": "nhap mon 4",
             "difficulty_valid": true,
             "difficulty_tier_key": "nhap_mon",
@@ -617,22 +425,46 @@
             "difficulty_rank": 1004,
             "difficulty_label": "Nhập môn 4"
         },
-        "157,168": {
+        "120,210": {
             "state": "RESOURCE",
-            "difficulty": "Nhập môn 2",
-            "last_updated": 1775947259,
-            "distance_to_city": 5,
-            "difficulty_normalized": "nhap mon 2",
+            "difficulty": "Nhập môn 1",
+            "last_updated": 1776348278,
+            "distance_to_city": 4,
+            "difficulty_normalized": "nhap mon 1",
             "difficulty_valid": true,
             "difficulty_tier_key": "nhap_mon",
-            "difficulty_level": 2,
-            "difficulty_rank": 1002,
-            "difficulty_label": "Nhập môn 2"
+            "difficulty_level": 1,
+            "difficulty_rank": 1001,
+            "difficulty_label": "Nhập môn 1"
         },
-        "161,163": {
+        "120,213": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 1",
+            "last_updated": 1776348295,
+            "distance_to_city": 5,
+            "difficulty_normalized": "nhap mon 1",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "nhap_mon",
+            "difficulty_level": 1,
+            "difficulty_rank": 1001,
+            "difficulty_label": "Nhập môn 1"
+        },
+        "121,212": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 1",
+            "last_updated": 1776348313,
+            "distance_to_city": 5,
+            "difficulty_normalized": "nhap mon 1",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "nhap_mon",
+            "difficulty_level": 1,
+            "difficulty_rank": 1001,
+            "difficulty_label": "Nhập môn 1"
+        },
+        "118,208": {
             "state": "OWNED",
             "difficulty": "",
-            "last_updated": 1775992808,
+            "last_updated": 1776350048,
             "distance_to_city": 4,
             "difficulty_normalized": "",
             "difficulty_valid": false,
@@ -641,17 +473,89 @@
             "difficulty_rank": 999999,
             "difficulty_label": ""
         },
-        "162,163": {
-            "state": "OWNED",
-            "difficulty": "",
-            "last_updated": 1775994036,
+        "121,211": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1776348919,
+            "distance_to_city": 4,
+            "difficulty_normalized": "thuong 3",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 3,
+            "difficulty_rank": 2003,
+            "difficulty_label": "Thường 3"
+        },
+        "113,211": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1776349389,
+            "distance_to_city": 4,
+            "difficulty_normalized": "thuong 3",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 3,
+            "difficulty_rank": 2003,
+            "difficulty_label": "Thường 3"
+        },
+        "114,210": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 4",
+            "last_updated": 1776349406,
+            "distance_to_city": 4,
+            "difficulty_normalized": "nhap mon 4",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "nhap_mon",
+            "difficulty_level": 4,
+            "difficulty_rank": 1004,
+            "difficulty_label": "Nhập môn 4"
+        },
+        "115,209": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 2",
+            "last_updated": 1776349710,
+            "distance_to_city": 4,
+            "difficulty_normalized": "nhap mon 2",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "nhap_mon",
+            "difficulty_level": 2,
+            "difficulty_rank": 1002,
+            "difficulty_label": "Nhập môn 2"
+        },
+        "116,208": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 2",
+            "last_updated": 1776350010,
+            "distance_to_city": 4,
+            "difficulty_normalized": "nhap mon 2",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "nhap_mon",
+            "difficulty_level": 2,
+            "difficulty_rank": 1002,
+            "difficulty_label": "Nhập môn 2"
+        },
+        "118,207": {
+            "state": "RESOURCE",
+            "difficulty": "Thường 3",
+            "last_updated": 1776387343,
             "distance_to_city": 5,
-            "difficulty_normalized": "",
-            "difficulty_valid": false,
-            "difficulty_tier_key": "",
-            "difficulty_level": 999,
-            "difficulty_rank": 999999,
-            "difficulty_label": ""
+            "difficulty_normalized": "thuong 3",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "thuong",
+            "difficulty_level": 3,
+            "difficulty_rank": 2003,
+            "difficulty_label": "Thường 3"
+        },
+        "119,208": {
+            "state": "RESOURCE",
+            "difficulty": "Nhập môn 4",
+            "last_updated": 1776387362,
+            "distance_to_city": 5,
+            "difficulty_normalized": "nhap mon 4",
+            "difficulty_valid": true,
+            "difficulty_tier_key": "nhap_mon",
+            "difficulty_level": 4,
+            "difficulty_rank": 1004,
+            "difficulty_label": "Nhập môn 4"
         }
     }
 }

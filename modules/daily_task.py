@@ -70,26 +70,3 @@ class DailyTaskManager:
             time.sleep(1)
         else:
             print("   > Không thấy icon Vòng Quay ở màn hình chính.")
-
-    # --- CHỨC NĂNG 2: NHẬN VÀNG FREE ---
-    def claim_free_gold(self):
-        print("\n--- ACTION: Nhận 3 Vàng Free ---")
-
-        # 1. Tìm và bấm vào Cửa Tiệm
-        # (Thử 2 lần cho chắc, lỡ game lag chưa load kịp map)
-        if self.find_and_tap("icon_cua_tiem.png", wait_after=3, retries=2):
-
-            # 2. Tìm nút 3 Vàng bên trong
-            if self.find_and_tap("btn_3_vang.png", wait_after=3):
-                print("   > Đã nhận 3 vàng thành công!")
-                # Có thể cần bấm OK nếu game hiện popup "Nhận thành công"
-                # Nhưng thường tap ra ngoài là tắt hết.
-            else:
-                print("   > Không thấy gói 3 vàng có thể nhận (Đã nhận rồi?).")
-
-            # 3. Thoát ra màn hình chính
-            print("   > Thoát cửa tiệm...")
-            self.device.tap(1, 1)
-            time.sleep(1)
-        else:
-            print("   > Không tìm thấy Cửa Tiệm.")

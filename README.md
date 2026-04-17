@@ -25,7 +25,7 @@ Bot tự động cho game Android theo hướng nhận diện ảnh (OpenCV + OC
 - `core/gui_bridge.py`: chạy bot ở process riêng và stream log/state về GUI.
 - `modules/combat.py`: scan target, OCR độ khó, dispatch/retreat, timing combat, hard-dig dispatch.
 - `modules/builder.py`: build/upgrade, OCR level/time/tên công trình, bỏ qua tác vụ đã hoàn thành.
-- `modules/daily_task.py`: vòng quay + nhận vàng định kỳ.
+- `modules/daily_task.py`: vòng quay may mắn định kỳ.
 - `modules/captcha.py`: detect captcha và giải theo luồng spam icon #1.
 
 ## 3) Yêu cầu môi trường
@@ -77,6 +77,7 @@ python main.py
 </center>
 
 - Chọn `Dùng map cũ` hoặc `Tạo map mới` + nhập `X/Y`.
+- Thiết lập bắt buộc lần đầu: trước khi chạy bot, cần cấu hình `build_order_runtime.json` trong Config Editor và bấm `Save`.
 - `Start`: chạy bot process.
 - `Pause` / `Resume`: tạm dừng / tiếp tục theo cơ chế cooperative.
 - `Stop`: dừng mềm, quá timeout sẽ terminate process.
@@ -142,6 +143,11 @@ Khi bot khởi động, log sẽ in mục `[CONFIG] Runtime config paths` để 
 - Trong Config Editor, chọn `build_order_runtime.json`.
 - Dùng Step Picker (danh sách nút “Bước X: ...”) để bấm chọn điểm bắt đầu.
 - Giá trị lưu dưới dạng `start_index` (0-based).
+
+Từ bản `v1.1.1`, GUI áp dụng cơ chế bảo vệ khởi tạo:
+- `Start` sẽ bị khóa cho đến khi file `build_order_runtime.json` có `initial_setup_done = true`.
+- Khi mở tool lần đầu và chưa setup, GUI sẽ tự mở `Config Editor` đúng file `build_order_runtime.json`.
+- Sau khi bấm `Save` trong Config Editor, hệ thống tự ghi `initial_setup_done = true` và mở khóa `Start`.
 
 Lưu ý bản đóng gói (`.exe`): bot ưu tiên đọc file runtime người dùng chỉnh ở `config/build_order_runtime.json` (ngoài thư mục bundle nội bộ), nên thay đổi `start_index` sẽ có hiệu lực đúng như khi chạy source.
 
@@ -238,6 +244,9 @@ Output mặc định: `installer/installer_output/NTA-AutoBot-Setup.exe`
   - kiểm tra log combat đang ở trạng thái nào.
 - Builder chạy sai điểm bắt đầu:
   - kiểm tra `config/build_order_runtime.json` (`start_index`) hoặc chọn lại trong Step Picker GUI.
+- Không bấm được `Start` ngay khi mở app:
+  - đây là hành vi đúng từ `v1.1.1` để ép setup ban đầu Builder;
+  - mở `Config Editor` -> `build_order_runtime.json` -> chọn bước bắt đầu -> `Save`.
 - Log không tự clear trên GUI:
   - tính năng auto-clear phụ thuộc `config/runtime.json`:
     - `terminal_auto_clear_enabled`

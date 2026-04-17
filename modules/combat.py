@@ -823,7 +823,7 @@ class CombatManager:
         # Crop vùng chứa text độ khó (Bạn cần tinh chỉnh tọa độ này chính xác)
         # Giả sử popup hiện ngay trên nút chiếm
         # Tọa độ ước lượng:
-        x1, y1 = btn_chiem_pos[0] - 210, btn_chiem_pos[1] - 57
+        x1, y1 = btn_chiem_pos[0] - 220, btn_chiem_pos[1] - 57
         x2, y2 = x1 + 90, y1 + 30
 
         # Đảm bảo tọa độ không vượt quá kích thước ảnh
